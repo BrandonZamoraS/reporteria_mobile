@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import SupermercadoDetalleModal from "./establecimientos/supermercado-detalle-modal";
+import type { DetailSource, EstablishmentDetailData } from "./establecimientos/detail-types";
+
+type ZonaListItem = {
+  id: number;
+  name: string;
+  meta: string;
+};
+
+type ZonaListWithModalViewProps = {
+  routeId: number;
+  source: DetailSource;
+  items: ZonaListItem[];
+  details: EstablishmentDetailData[];
+  emptyMessage: string;
+  backHref: string;
+};
+
+export default function ZonaListWithModalView({
+  routeId,
+  source,
+  items,
+  details,
+  emptyMessage,
+  backHref,
+}: ZonaListWithModalViewProps) {
+  const [activeEstablishmentId, setActiveEstablishmentId] = useState<number | null>(null);
+
+  const detailById = useMemo(
+    () => new Map(details.map((detail) => [detail.establishmentId, detail])),
+    [details],
+  );
+
+  const activeDetail = activeEstablishmentId !== null ? (detailById.get(activeEstablishmentId) ?? null) : null;
+
+  return (
+    <div className="relative flex h-full min-h-0 w-full flex-col">
+      <section className="min-h-0 flex-1 overflow-y-auto pb-20 pt-1">
+        <div className="flex w-full flex-col gap-3">
+          {items.length === 0 ? (
+            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[14px] text-[#405C62]">
+              {emptyMessage}
+            </div>
+          ) : null}
+
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveEstablishmentId(item.id)}
+              className="flex h-[72px] w-full flex-col justify-center gap-1 rounded-[12px] bg-[#5A7A84] px-3 text-left"
+            >
+              <p className="m-0 text-[14px] leading-none font-normal text-white">{item.name}</p>
+              <p className="m-0 text-[12px] leading-none font-normal text-[#E9EDE9]">{item.meta}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="fixed bottom-0 left-1/2 z-10 w-full max-w-[390px] -translate-x-1/2 bg-[#E9EDE9] px-4 pb-4 pt-2">
+        <Link
+          href={backHref}
+          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+        >
+          Volver
+        </Link>
+      </div>
+
+      {activeDetail ? (
+        <SupermercadoDetalleModal
+          establishmentName={activeDetail.establishmentName}
+          establishmentDirection={activeDetail.establishmentDirection}
+          source={source}
+          hasActiveLapso={activeDetail.hasActiveLapso}
+          mapsHref={activeDetail.mapsHref}
+          items={activeDetail.items}
+          actionHref={`/mis-rutas/${routeId}/establecimientos/${activeDetail.establishmentId}?from=${source}`}
+          onClose={() => setActiveEstablishmentId(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
