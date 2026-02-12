@@ -377,7 +377,7 @@ export default function RegistroForm({
           ) : null}
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-[#E9EDE9] px-4 pb-4 pt-2">
+        <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-[#E9EDE9] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
           <div className="flex w-full flex-col gap-2">
             <button
               type="submit"
@@ -404,4 +404,5 @@ export default function RegistroForm({
     </div>
   );
 }
+
 
