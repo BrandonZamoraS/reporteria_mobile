@@ -170,13 +170,60 @@ function toNullableNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function getCurrentGeoForEvidence(count: number): Promise<EvidenceGeoInfo[] | null> {
-  if (count === 0) return [];
-  if (!("geolocation" in navigator)) return null;
+type GeoFailureReason =
+  | "unsupported"
+  | "insecure"
+  | "denied"
+  | "timeout"
+  | "unavailable"
+  | "unknown";
+
+type GeoEvidenceResult =
+  | { ok: true; value: EvidenceGeoInfo[] }
+  | { ok: false; reason: GeoFailureReason };
+
+function toGeoFailureReason(error: unknown): GeoFailureReason {
+  if (!error || typeof error !== "object") return "unknown";
+
+  const maybe = error as Partial<GeolocationPositionError>;
+  switch (maybe.code) {
+    case 1:
+      return "denied";
+    case 2:
+      return "unavailable";
+    case 3:
+      return "timeout";
+    default:
+      return "unknown";
+  }
+}
+
+function geoFailureMessage(reason: GeoFailureReason): string {
+  switch (reason) {
+    case "unsupported":
+      return "Tu navegador no soporta geolocalizacion.";
+    case "insecure":
+      return "La geolocalizacion requiere HTTPS.";
+    case "denied":
+      return "Debes permitir geolocalizacion para adjuntar evidencias. Si ya la bloqueaste, habilitala en la configuracion del navegador.";
+    case "timeout":
+    case "unavailable":
+      return "No pudimos obtener tu ubicacion. Revisa que el GPS/ubicacion este activado e intenta de nuevo.";
+    case "unknown":
+    default:
+      return "No se pudo obtener tu ubicacion. Intenta de nuevo.";
+  }
+}
+
+async function getCurrentGeoForEvidence(count: number): Promise<GeoEvidenceResult> {
+  if (count === 0) return { ok: true, value: [] };
+  if (typeof window === "undefined") return { ok: false, reason: "unknown" };
+  if (!window.isSecureContext) return { ok: false, reason: "insecure" };
+  if (!("geolocation" in navigator)) return { ok: false, reason: "unsupported" };
 
   try {
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
+      navigator.geolocation.getCurrentPosition(resolve, (error) => reject(error), {
         enableHighAccuracy: true,
         timeout: 15000,
         maximumAge: 0,
@@ -193,9 +240,9 @@ async function getCurrentGeoForEvidence(count: number): Promise<EvidenceGeoInfo[
       capturedAt,
     };
 
-    return Array.from({ length: count }, () => ({ ...entry }));
-  } catch {
-    return null;
+    return { ok: true, value: Array.from({ length: count }, () => ({ ...entry })) };
+  } catch (error) {
+    return { ok: false, reason: toGeoFailureReason(error) };
   }
 }
 
@@ -237,6 +284,9 @@ export default function RegistroForm({
   const [newEvidenceGeos, setNewEvidenceGeos] = useState<EvidenceGeoInfo[]>([]);
   const [newEvidencePreviewUrls, setNewEvidencePreviewUrls] = useState<string[]>([]);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [geoPermissionState, setGeoPermissionState] = useState<PermissionState | "unknown">(
+    "unknown",
+  );
   const evidenceInputRef = useRef<HTMLInputElement | null>(null);
 
   const routeById = useMemo(
@@ -314,6 +364,32 @@ export default function RegistroForm({
   }, [newEvidencePreviewUrls]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.isSecureContext) return;
+    if (!navigator.permissions?.query) return;
+
+    let status: PermissionStatus | null = null;
+    let cancelled = false;
+
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((result) => {
+        if (cancelled) return;
+        status = result;
+        setGeoPermissionState(result.state);
+        result.onchange = () => setGeoPermissionState(result.state);
+      })
+      .catch(() => {
+        // Some browsers (notably Safari) may throw for geolocation permissions query.
+      });
+
+    return () => {
+      cancelled = true;
+      if (status) status.onchange = null;
+    };
+  }, []);
+
+  useEffect(() => {
     // Sincronizar los archivos con el input antes del submit
     if (evidenceInputRef.current && newEvidenceFiles.length > 0) {
       const dataTransfer = new DataTransfer();
@@ -350,16 +426,19 @@ export default function RegistroForm({
       return;
     }
 
-    const geoList = await getCurrentGeoForEvidence(fileList.length);
-    if (!geoList) {
+    const geoResult = await getCurrentGeoForEvidence(fileList.length);
+    if (!geoResult.ok) {
       if (inputElement) inputElement.value = "";
-      setClientError("Debes permitir geolocalizacion para adjuntar evidencias.");
+      setClientError(geoFailureMessage(geoResult.reason));
+      if (geoResult.reason === "denied") setGeoPermissionState("denied");
       return;
     }
 
+    setGeoPermissionState("granted");
+
     // Agregar a las evidencias existentes
     setNewEvidenceFiles((prev) => [...prev, ...fileList]);
-    setNewEvidenceGeos((prev) => [...prev, ...geoList]);
+    setNewEvidenceGeos((prev) => [...prev, ...geoResult.value]);
     setNewEvidencePreviewUrls((prev) => [
       ...prev,
       ...fileList.map((file) => URL.createObjectURL(file)),
@@ -388,6 +467,43 @@ export default function RegistroForm({
       setClientError("Ya alcanzaste el maximo de 6 evidencias.");
       return;
     }
+
+    setClientError(null);
+
+    if (typeof window === "undefined") return;
+    if (!window.isSecureContext) {
+      setClientError(geoFailureMessage("insecure"));
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      setClientError(geoFailureMessage("unsupported"));
+      return;
+    }
+
+    // Request location permission before opening the file picker. Some browsers may block the prompt
+    // if geolocation is requested after returning from the file picker.
+    if (geoPermissionState === "denied") {
+      setClientError(geoFailureMessage("denied"));
+      return;
+    }
+
+    if (geoPermissionState !== "granted") {
+      setClientError(
+        "Para adjuntar evidencias necesitamos tu ubicacion. Acepta el permiso y luego toca + de nuevo.",
+      );
+      void (async () => {
+        const probe = await getCurrentGeoForEvidence(1);
+        if (probe.ok) {
+          setGeoPermissionState("granted");
+          setClientError(null);
+          return;
+        }
+        if (probe.reason === "denied") setGeoPermissionState("denied");
+        setClientError(geoFailureMessage(probe.reason));
+      })();
+      return;
+    }
+
     evidenceInputRef.current?.click();
   }
 
