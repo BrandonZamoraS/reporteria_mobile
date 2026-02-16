@@ -344,6 +344,71 @@ function revalidateRegistroRelatedPaths(routeId: number, establishmentId: number
   revalidatePath(`/mis-rutas/${routeId}/establecimientos/${establishmentId}`);
 }
 
+
+export async function uploadSingleEvidenceAction(
+  _prevState: any,
+  formData: FormData,
+): Promise<{ error: string | null; success: boolean }> {
+  try {
+    const auth = await getAuthContext();
+    if (!auth) {
+      return { error: "No autorizado", success: false };
+    }
+
+    const recordId = Number(formData.get("recordId"));
+    if (!Number.isFinite(recordId)) {
+      return { error: "ID de registro inválido", success: false };
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { error: "Archivo inválido", success: false };
+    }
+
+    // Double check size limit server side
+    if (file.size > MAX_EVIDENCE_FILE_BYTES) {
+      return { error: "El archivo excede el límite de 8MB", success: false };
+    }
+
+    const geoJson = String(formData.get("geoJson") ?? "{}");
+    let geoInfo: EvidenceGeoInfo | null = null;
+    try {
+        geoInfo = JSON.parse(geoJson);
+    } catch {
+        // ignore
+    }
+
+    const extension = getFileExtension(file);
+    const objectPath = `${auth.authUserId}/${recordId}/${crypto.randomUUID()}.${extension}`;
+
+    const { error: uploadError } = await auth.supabase.storage
+      .from(EVIDENCE_BUCKET)
+      .upload(objectPath, file, {
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      return { error: "Error al subir a storage", success: false };
+    }
+
+    const { error: insertError } = await auth.supabase.from("evidence").insert({
+      record_id: recordId,
+      url: objectPath,
+      geo_info: geoInfo ? JSON.stringify(geoInfo) : null,
+    });
+
+    if (insertError) {
+      await auth.supabase.storage.from(EVIDENCE_BUCKET).remove([objectPath]);
+      return { error: "Error guardando referencia", success: false };
+    }
+
+    return { error: null, success: true };
+  } catch (err: any) {
+    return { error: err.message || "Error desconocido", success: false };
+  }
+}
+
 export async function createRegistroAction(
   _prevState: RegistroActionState,
   formData: FormData,

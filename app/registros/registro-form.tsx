@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { createRegistroAction, updateRegistroAction } from "./actions";
+import { createRegistroAction, updateRegistroAction, uploadSingleEvidenceAction } from "./actions";
 import type {
   EstablishmentOption,
   EvidenceGeoInfo,
@@ -255,32 +255,45 @@ function buildEstablishmentLabel(
 }
 
 async function compressImage(file: File): Promise<File> {
-  // 1MB threshold
+  // If the file is already under 1MB, we don't need to compress it
+  // This is well within the 8MB limit and safe for network transmission
   if (file.size < 1024 * 1024) return file;
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    
+
     reader.onload = (event) => {
       const img = document.createElement("img");
       img.src = event.target?.result as string;
-      
+
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1280;
-        const scale = Math.min(MAX_WIDTH / img.width, 1);
-        
-        // If no scaling needed, but file is large, we still compress via quality
-        const width = Math.floor(img.width * scale);
-        const height = Math.floor(img.height * scale);
+        const MAX_WIDTH = 1280; // Reasonable width for mobile viewing
+        let width = img.width;
+        let height = img.height;
+
+        // Resize logic to keep max dimension within MAX_WIDTH
+        if (width > height) {
+            if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+            }
+        } else {
+            if (height > MAX_WIDTH) {
+                width = Math.round((width * MAX_WIDTH) / height);
+                height = MAX_WIDTH;
+            }
+        }
 
         canvas.width = width;
         canvas.height = height;
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          resolve(file);
+          // If detailed processing fails, return original if < 8MB, else reject
+          if (file.size < 8 * 1024 * 1024) resolve(file);
+          else reject(new Error("No se pudo procesar la imagen y excede el limite de 8MB"));
           return;
         }
 
@@ -289,8 +302,10 @@ async function compressImage(file: File): Promise<File> {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              resolve(file);
-              return;
+                // Same fallback logic
+                if (file.size < 8 * 1024 * 1024) resolve(file);
+                else reject(new Error("Error al recomprimir la imagen"));
+                return;
             }
             // Force jpeg for better compression
             const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
@@ -300,14 +315,21 @@ async function compressImage(file: File): Promise<File> {
             resolve(newFile);
           },
           "image/jpeg",
-          0.8, // 80% quality
+          0.8, // 80% quality usually results in files < 500KB for 1280px
         );
       };
-      
-      img.onerror = () => resolve(file);
+
+      img.onerror = () => {
+         // Fallback: if load error, try sending original if within limits
+         if (file.size < 8 * 1024 * 1024) resolve(file);
+         else reject(new Error("Error al cargar la imagen y excede el limite de 8MB"));
+      };
     };
-    
-    reader.onerror = () => resolve(file);
+
+    reader.onerror = () => {
+         if (file.size < 8 * 1024 * 1024) resolve(file);
+         else reject(new Error("Error al leer el archivo y excede el limite de 8MB"));
+    };
   });
 }
 
@@ -578,9 +600,160 @@ export default function RegistroForm({
     evidenceInputRef.current?.click();
   }
 
+
+    evidenceInputRef.current?.click();
+  }
+
+  async function handleControlledSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+
+    // 1. Basic Validation
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    // Remove file inputs from main submission to avoid payload limits
+    formData.delete("evidenceFiles");
+
+    // Manually check if we have enough total evidence (existing + new)
+    const existingCount = existingEvidenceUrls.length;
+    const newCount = newEvidenceFiles.length;
+    const totalCount = existingCount + newCount;
+
+    if (totalCount < 1 || totalCount > 6) {
+      setClientError("Debes tener entre 1 y 6 evidencias en total.");
+      return;
+    }
+
+    // 2. Submit initial record creation/update without files
+    let result: RegistroActionState;
+    
+    // We need to wrap formAction to be used here or call the action directly
+    // Since we are inside a client component, we can call the server action directly
+    const actionToCall = mode === "create" ? createRegistroAction : updateRegistroAction;
+    
+    try {
+      // Trigger a transition-like state if needed, but since we have "pending" from useActionState...
+      // Actually useActionState is tied to the form submission. 
+      // We can't easily hijack it with manual calls while maintaining the hook's state.
+      // So we will use startTransition or just async/await and manage a local loading state if needed.
+      // For now, let's just await the action.
+      
+      // Note: We need to set a "submitting" state because useActionState won't trigger automatically here.
+      // But we can't write to "pending". We'll use a local state or toast.
+      // better: use a second loading state.
+    } catch (e) {
+      console.error(e);
+      setClientError("Error al iniciar el envío.");
+      return;
+    }
+  }
+
+  // We need a local loading state since we are bypassing the form action for the multi-step process
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function onFormSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSubmitting) return;
+
+    setClientError(null);
+    setIsSubmitting(true);
+
+    try {
+        const formData = new FormData(event.currentTarget);
+        // Remove heavy files
+        formData.delete("evidenceFiles");
+        
+        // Validation reused logic
+        const existingCount = existingEvidenceUrls.length;
+        const newCount = newEvidenceFiles.length;
+        const totalCount = existingCount + newCount;
+
+        if (totalCount < 1 || totalCount > 6) {
+            setClientError("Debes tener entre 1 y 6 evidencias en total.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        // Step 1: Create/Update Record
+        const action = mode === "create" ? createRegistroAction : updateRegistroAction;
+        const result = await action(INITIAL_ACTION_STATE, formData);
+
+        if (result.error || !result.success || !result.recordId) {
+            setClientError(result.error || "Error al guardar el registro.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        const recordId = result.recordId;
+
+        // Step 2: Upload new images one by one
+        let uploadErrors = 0;
+        const totalFiles = newEvidenceFiles.length;
+        
+        // Show progress? We can't easily update a progress bar here without more state.
+        
+        for (let i = 0; i < totalFiles; i++) {
+            const file = newEvidenceFiles[i];
+            const geo = newEvidenceGeos[i];
+            
+            const uploadFormData = new FormData();
+            uploadFormData.append("recordId", String(recordId));
+            uploadFormData.append("file", file);
+            if (geo) {
+                uploadFormData.append("geoJson", JSON.stringify(geo));
+            }
+            
+            // Just update client error to show progress (simple way)
+            setClientError(`Subiendo imagen ${i + 1} de ${totalFiles}...`);
+
+            try {
+                const uploadResult = await uploadSingleEvidenceAction(null, uploadFormData);
+                if (uploadResult.error) {
+                    console.error(`Error uploading file ${i}:`, uploadResult.error);
+                    uploadErrors++;
+                }
+            } catch (e) {
+                console.error(e);
+                uploadErrors++;
+            }
+        }
+
+        if (uploadErrors > 0) {
+            setClientError(`El registro se creó, pero fallaron ${uploadErrors} imágenes. Intenta editarlo.`);
+            // Redirect anyway? Or stay? 
+            // The record exists now. If we stay, we might create duplicates if they click submit again.
+            // Best to redirect to success but maybe with a warning param.
+        }
+        
+        // Use the same success redirection logic
+        const params = new URLSearchParams({
+            recordId: String(recordId),
+            backHref,
+            source,
+            routeId: String(effectiveRouteId ?? ""),
+            establishmentId: String(effectiveEstablishmentId ?? ""),
+        });
+        
+        if (uploadErrors > 0) {
+            params.append("warning", "partial_upload");
+        }
+
+        router.push(`/registros/exito?${params.toString()}`);
+
+    } catch (err: any) {
+        console.error(err);
+        setClientError(err.message || "Error inesperado.");
+        setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
-      <form action={formAction} className="min-h-0 flex-1 overflow-y-auto pb-24 pt-1">
+      <form
+        onSubmit={onFormSubmit}
+        className="min-h-0 flex-1 overflow-y-auto pb-24 pt-1"
+      >
         {recordId ? <input type="hidden" name="recordId" value={recordId} /> : null}
         <input type="hidden" name="source" value={source} />
         <input type="hidden" name="routeId" value={effectiveRouteId ?? ""} />
@@ -749,6 +922,7 @@ export default function RegistroForm({
               type="submit"
               disabled={
                 pending ||
+                isSubmitting ||
                 !!clientError ||
                 effectiveRouteId === null ||
                 effectiveEstablishmentId === null ||
@@ -756,7 +930,7 @@ export default function RegistroForm({
               }
               className="flex h-11 w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[14px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending ? "Guardando..." : submitLabel}
+              {pending || isSubmitting ? "Guardando..." : submitLabel}
             </button>
           </div>
         </div>
