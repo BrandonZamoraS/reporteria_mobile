@@ -98,7 +98,7 @@ function Combobox({
             }}
             placeholder={placeholder}
             disabled={disabled}
-            className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 pr-10 text-[14px] text-[#0D3233] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+            className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 pr-10 text-base text-[#0D3233] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <ChevronDown
             size={20}
@@ -118,7 +118,7 @@ function Combobox({
                   e.preventDefault();
                   handleSelect(option.value);
                 }}
-                className={`w-full px-3 py-2.5 text-left text-[14px] hover:bg-[#E9EDE9] ${
+                className={`w-full px-3 py-2.5 text-left text-base hover:bg-[#E9EDE9] ${
                   option.value === value ? "bg-[#DDE2DD]" : ""
                 }`}
               >
@@ -130,7 +130,7 @@ function Combobox({
 
         {isOpen && !disabled && filteredOptions.length === 0 && (
           <div className="absolute z-50 mt-1 w-full rounded-[12px] border border-[#B3B5B3] bg-white shadow-lg px-3 py-2.5">
-            <p className="m-0 text-[14px] text-[#8A9BA7]">No se encontraron resultados</p>
+            <p className="m-0 text-base text-[#8A9BA7]">No se encontraron resultados</p>
           </div>
         )}
       </div>
@@ -328,28 +328,31 @@ export default function RegistroForm({
       recordId: String(state.recordId),
       backHref,
       source,
+      routeId: String(effectiveRouteId ?? ""),
+      establishmentId: String(effectiveEstablishmentId ?? ""),
     });
     router.push(`/registros/exito?${params.toString()}`);
-  }, [backHref, router, source, state.recordId, state.success]);
+  }, [backHref, router, source, state.recordId, state.success, effectiveRouteId, effectiveEstablishmentId]);
 
   async function handleEvidenceFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
     const fileList = Array.from(event.currentTarget.files ?? []);
+    const inputElement = event.currentTarget;
     setClientError(null);
 
     if (fileList.length === 0) {
-      event.currentTarget.value = "";
+      if (inputElement) inputElement.value = "";
       return;
     }
 
     if (fileList.length > remainingCapacity) {
-      event.currentTarget.value = "";
+      if (inputElement) inputElement.value = "";
       setClientError(`Solo puedes agregar ${remainingCapacity} evidencias nuevas.`);
       return;
     }
 
     const geoList = await getCurrentGeoForEvidence(fileList.length);
     if (!geoList) {
-      event.currentTarget.value = "";
+      if (inputElement) inputElement.value = "";
       setClientError("Debes permitir geolocalizacion para adjuntar evidencias.");
       return;
     }
@@ -363,7 +366,7 @@ export default function RegistroForm({
     ]);
 
     // Limpiar el input para permitir seleccionar los mismos archivos de nuevo
-    event.currentTarget.value = "";
+    if (inputElement) inputElement.value = "";
   }
 
   function handleRemoveNewEvidence(index: number) {
@@ -435,7 +438,7 @@ export default function RegistroForm({
               name="systemInventory"
               min={0}
               defaultValue={initialSystemInventory ?? undefined}
-              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] text-[#0D3233] outline-none"
+              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-base text-[#0D3233] outline-none"
             />
           </label>
 
@@ -448,7 +451,7 @@ export default function RegistroForm({
               name="realInventory"
               min={0}
               defaultValue={initialRealInventory ?? undefined}
-              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] text-[#0D3233] outline-none"
+              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-base text-[#0D3233] outline-none"
             />
           </label>
 
@@ -536,7 +539,7 @@ export default function RegistroForm({
               rows={4}
               defaultValue={initialComments ?? ""}
               placeholder="Notas..."
-              className="h-24 w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[14px] text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+              className="h-24 w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-base text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
             />
           </label>
 

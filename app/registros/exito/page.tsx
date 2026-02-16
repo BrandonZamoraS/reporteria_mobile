@@ -21,20 +21,25 @@ function getDisplayName(user: User | null, profileName?: string | null) {
   return user.email ?? "Usuario";
 }
 
-function getSafeBackHref(value: string | undefined) {
-  if (!value) return "/registros";
-  if (!value.startsWith("/")) return "/registros";
-  if (value.startsWith("//")) return "/registros";
-  return value;
+function parseOptionalNumber(value: string | undefined) {
+  const parsed = Number(value ?? "");
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export default async function RegistroSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ recordId?: string; backHref?: string }>;
+  searchParams: Promise<{
+    recordId?: string;
+    backHref?: string;
+    source?: string;
+    routeId?: string;
+    establishmentId?: string;
+  }>;
 }) {
-  const { recordId, backHref } = await searchParams;
-  const safeBackHref = getSafeBackHref(backHref);
+  const { recordId, backHref, source, routeId, establishmentId } = await searchParams;
+  const parsedRouteId = parseOptionalNumber(routeId);
+  const parsedEstablishmentId = parseOptionalNumber(establishmentId);
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -86,18 +91,20 @@ export default async function RegistroSuccessPage({
           ) : null}
         </div>
 
-        <Link
-          href="/registros"
-          className="flex h-11 w-full items-center justify-center rounded-[12px] bg-[#0D3233] text-[14px] leading-none font-normal text-white"
-        >
-          Ir a registros
-        </Link>
+        {parsedRouteId && parsedEstablishmentId && source ? (
+          <Link
+            href={`/mis-rutas/${parsedRouteId}/establecimientos/${parsedEstablishmentId}?from=${source}`}
+            className="flex h-11 w-full items-center justify-center rounded-[12px] bg-[#0D3233] text-[14px] leading-none font-normal text-white"
+          >
+            Registrar otro producto
+          </Link>
+        ) : null}
 
         <Link
-          href={safeBackHref}
+          href="/registros"
           className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
-          Volver
+          Ir a registros
         </Link>
       </div>
     </AppShell>
