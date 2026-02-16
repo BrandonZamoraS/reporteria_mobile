@@ -254,6 +254,63 @@ function buildEstablishmentLabel(
   return routeName ? `${establishment.name} | ${routeName}` : establishment.name;
 }
 
+async function compressImage(file: File): Promise<File> {
+  // 1MB threshold
+  if (file.size < 1024 * 1024) return file;
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    
+    reader.onload = (event) => {
+      const img = document.createElement("img");
+      img.src = event.target?.result as string;
+      
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1280;
+        const scale = Math.min(MAX_WIDTH / img.width, 1);
+        
+        // If no scaling needed, but file is large, we still compress via quality
+        const width = Math.floor(img.width * scale);
+        const height = Math.floor(img.height * scale);
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            // Force jpeg for better compression
+            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve(newFile);
+          },
+          "image/jpeg",
+          0.8, // 80% quality
+        );
+      };
+      
+      img.onerror = () => resolve(file);
+    };
+    
+    reader.onerror = () => resolve(file);
+  });
+}
+
 export default function RegistroForm({
   mode,
   source,
@@ -426,7 +483,12 @@ export default function RegistroForm({
       return;
     }
 
-    const geoResult = await getCurrentGeoForEvidence(fileList.length);
+    // Process files and get geo in parallel
+    const [geoResult, compressedFiles] = await Promise.all([
+      getCurrentGeoForEvidence(fileList.length),
+      Promise.all(fileList.map((f) => compressImage(f))),
+    ]);
+
     if (!geoResult.ok) {
       if (inputElement) inputElement.value = "";
       setClientError(geoFailureMessage(geoResult.reason));
@@ -437,11 +499,11 @@ export default function RegistroForm({
     setGeoPermissionState("granted");
 
     // Agregar a las evidencias existentes
-    setNewEvidenceFiles((prev) => [...prev, ...fileList]);
+    setNewEvidenceFiles((prev) => [...prev, ...compressedFiles]);
     setNewEvidenceGeos((prev) => [...prev, ...geoResult.value]);
     setNewEvidencePreviewUrls((prev) => [
       ...prev,
-      ...fileList.map((file) => URL.createObjectURL(file)),
+      ...compressedFiles.map((file) => URL.createObjectURL(file)),
     ]);
 
     // Limpiar el input para permitir seleccionar los mismos archivos de nuevo
