@@ -483,31 +483,40 @@ export default function RegistroForm({
       return;
     }
 
-    // Process files and get geo in parallel
-    const [geoResult, compressedFiles] = await Promise.all([
-      getCurrentGeoForEvidence(fileList.length),
-      Promise.all(fileList.map((f) => compressImage(f))),
-    ]);
+    try {
+      // Process files and get geo in parallel
+      const [geoResult, compressedFiles] = await Promise.all([
+        getCurrentGeoForEvidence(fileList.length),
+        Promise.all(fileList.map((f) => compressImage(f))),
+      ]);
 
-    if (!geoResult.ok) {
+      if (!geoResult.ok) {
+        if (inputElement) inputElement.value = "";
+        setClientError(geoFailureMessage(geoResult.reason));
+        if (geoResult.reason === "denied") setGeoPermissionState("denied");
+        return;
+      }
+
+      setGeoPermissionState("granted");
+
+      // Agregar a las evidencias existentes
+      setNewEvidenceFiles((prev) => [...prev, ...compressedFiles]);
+      setNewEvidenceGeos((prev) => [...prev, ...geoResult.value]);
+      setNewEvidencePreviewUrls((prev) => [
+        ...prev,
+        ...compressedFiles.map((file) => URL.createObjectURL(file)),
+      ]);
+    } catch (error) {
+      console.error(error);
+      setClientError(
+        error instanceof Error
+          ? `Error procesando archivos: ${error.message}`
+          : "Ocurrio un error inesperado al procesar las evidencias.",
+      );
+    } finally {
+      // Limpiar el input para permitir seleccionar los mismos archivos de nuevo
       if (inputElement) inputElement.value = "";
-      setClientError(geoFailureMessage(geoResult.reason));
-      if (geoResult.reason === "denied") setGeoPermissionState("denied");
-      return;
     }
-
-    setGeoPermissionState("granted");
-
-    // Agregar a las evidencias existentes
-    setNewEvidenceFiles((prev) => [...prev, ...compressedFiles]);
-    setNewEvidenceGeos((prev) => [...prev, ...geoResult.value]);
-    setNewEvidencePreviewUrls((prev) => [
-      ...prev,
-      ...compressedFiles.map((file) => URL.createObjectURL(file)),
-    ]);
-
-    // Limpiar el input para permitir seleccionar los mismos archivos de nuevo
-    if (inputElement) inputElement.value = "";
   }
 
   function handleRemoveNewEvidence(index: number) {
