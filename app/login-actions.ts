@@ -1,42 +1,58 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isAllowedAppRole } from "@/lib/auth/roles";
 import { redirect } from "next/navigation";
+import { isAllowedAppRole } from "@/lib/auth/roles";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildLoginActionState } from "./login-form-state.mjs";
 
 export type LoginActionState = {
   error: string | null;
   success: boolean;
+  resetPassword: boolean;
+  passwordResetNonce: number;
+  email?: string;
+};
+
+export const initialLoginActionState: LoginActionState = {
+  error: null,
+  success: false,
+  resetPassword: false,
+  passwordResetNonce: 0,
+  email: "",
 };
 
 export async function loginAction(
-  _prevState: LoginActionState,
+  prevState: LoginActionState,
   formData: FormData,
 ): Promise<LoginActionState> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return {
-      error: "Error de configuracion de autenticacion. Revisa variables de entorno.",
-      success: false,
-    };
-  }
-
-  const email = String(formData.get("username") ?? "")
+  const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return buildLoginActionState({
+      prevState,
+      error: "Error de configuracion de autenticacion. Revisa variables de entorno.",
+      email,
+    });
+  }
+
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    return {
+    return buildLoginActionState({
+      prevState,
       error: "Debes ingresar correo y contrasena.",
-      success: false,
-    };
+      email,
+    });
   }
 
   if (password.length < 8) {
-    return {
+    return buildLoginActionState({
+      prevState,
       error: "La contrasena debe tener al menos 8 caracteres.",
-      success: false,
-    };
+      email,
+    });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -46,11 +62,12 @@ export async function loginAction(
   });
 
   if (error) {
-    return {
-      // Generic message to avoid exposing auth internals.
+    return buildLoginActionState({
+      prevState,
       error: "No fue posible iniciar sesion con esas credenciales.",
-      success: false,
-    };
+      email,
+      resetPassword: true,
+    });
   }
 
   const {
@@ -58,10 +75,11 @@ export async function loginAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return {
+    return buildLoginActionState({
+      prevState,
       error: "No fue posible validar la sesion del usuario.",
-      success: false,
-    };
+      email,
+    });
   }
 
   const { data: profile } = await supabase
@@ -72,10 +90,11 @@ export async function loginAction(
 
   if (!isAllowedAppRole(profile?.role)) {
     await supabase.auth.signOut();
-    return {
+    return buildLoginActionState({
+      prevState,
       error: "Acceso denegado. Solo usuarios admin o rutero pueden ingresar.",
-      success: false,
-    };
+      email,
+    });
   }
 
   redirect("/home");

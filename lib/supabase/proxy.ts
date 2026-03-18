@@ -35,7 +35,11 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isRootRoute = pathname === "/";
   const isLoginRoute = pathname === "/login";
-  const isPublicAuthRoute = isRootRoute || isLoginRoute;
+  const isForgotPasswordRoute = pathname === "/login/olvide-contrasena";
+  const isAuthCallbackRoute = pathname === "/auth/callback";
+  const isResetPasswordRoute = pathname === "/auth/reset-contrasena";
+  const isGuestEntryRoute = isRootRoute || isLoginRoute || isForgotPasswordRoute;
+  const isPublicAuthRoute = isGuestEntryRoute || isAuthCallbackRoute || isResetPasswordRoute;
 
   if (!user && !isPublicAuthRoute) {
     const url = request.nextUrl.clone();
@@ -62,7 +66,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (hasAccess && isPublicAuthRoute) {
+  if (hasAccess && isGuestEntryRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
     return NextResponse.redirect(url);

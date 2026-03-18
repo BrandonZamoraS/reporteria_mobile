@@ -37,7 +37,7 @@ export default async function RegistroSuccessPage({
     establishmentId?: string;
   }>;
 }) {
-  const { recordId, backHref, source, routeId, establishmentId } = await searchParams;
+  const { recordId, source, routeId, establishmentId } = await searchParams;
   const parsedRouteId = parseOptionalNumber(routeId);
   const parsedEstablishmentId = parseOptionalNumber(establishmentId);
 
@@ -78,14 +78,14 @@ export default async function RegistroSuccessPage({
     >
       <div className="flex h-full w-full flex-col justify-center gap-4">
         <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center">
-          <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">
+          <p className="m-0 text-[18px] leading-none font-normal text-[#0D3233]">
             Se registro correctamente
           </p>
-          <p className="m-0 mt-2 text-[13px] leading-none font-normal text-[#5A7984]">
+          <p className="m-0 mt-2 text-[15px] leading-none font-normal text-[#5A7984]">
             El registro fue guardado.
           </p>
           {recordId ? (
-            <p className="m-0 mt-2 text-[12px] leading-none font-normal text-[#405C62]">
+            <p className="m-0 mt-2 text-[14px] leading-none font-normal text-[#405C62]">
               Registro #{recordId}
             </p>
           ) : null}
@@ -94,7 +94,7 @@ export default async function RegistroSuccessPage({
         {parsedRouteId && parsedEstablishmentId && source ? (
           <Link
             href={`/mis-rutas/${parsedRouteId}/establecimientos/${parsedEstablishmentId}?from=${source}`}
-            className="flex h-11 w-full items-center justify-center rounded-[12px] bg-[#0D3233] text-[14px] leading-none font-normal text-white"
+            className="flex h-11 w-full items-center justify-center rounded-[12px] bg-[#0D3233] text-[16px] leading-none font-normal text-white"
           >
             Registrar otro producto
           </Link>
@@ -102,7 +102,7 @@ export default async function RegistroSuccessPage({
 
         <Link
           href="/registros"
-          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Ir a registros
         </Link>

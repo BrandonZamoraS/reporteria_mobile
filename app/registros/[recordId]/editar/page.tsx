@@ -195,11 +195,12 @@ export default async function RegistroEditarPage({
       geoInfo: parseGeoInfo(evidence.geo_info ?? null),
     });
   }
+  const displayName = getDisplayName(user, profile.name);
 
   return (
     <AppShell
       title="Editar registro"
-      displayName={getDisplayName(user, profile.name)}
+      displayName={displayName}
       profilePhotoUrl={profilePhotoUrl}
       onLogout={logoutAction}
       contentClassName="relative flex min-h-0 flex-1 h-full w-full pt-4 overflow-hidden"
@@ -243,6 +244,7 @@ export default async function RegistroEditarPage({
         existingEvidences={existingEvidences}
         recordId={record.record_id}
         submitLabel="Actualizar registro"
+        currentUserName={displayName}
       />
     </AppShell>
   );

@@ -346,7 +346,7 @@ function revalidateRegistroRelatedPaths(routeId: number, establishmentId: number
 
 
 export async function uploadSingleEvidenceAction(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData,
 ): Promise<{ error: string | null; success: boolean }> {
   try {
@@ -404,8 +404,11 @@ export async function uploadSingleEvidenceAction(
     }
 
     return { error: null, success: true };
-  } catch (err: any) {
-    return { error: err.message || "Error desconocido", success: false };
+  } catch (err: unknown) {
+    return {
+      error: err instanceof Error ? err.message : "Error desconocido",
+      success: false,
+    };
   }
 }
 

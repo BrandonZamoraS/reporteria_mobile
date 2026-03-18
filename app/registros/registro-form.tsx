@@ -4,8 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import MobileSelectField, {
+  type MobileSelectOption,
+} from "@/app/_components/mobile-select-field";
 import { createRegistroAction, updateRegistroAction, uploadSingleEvidenceAction } from "./actions";
+import { buildEvidenceStampLines, stampEvidenceFile } from "./evidence-stamp.mjs";
 import type {
   EstablishmentOption,
   EvidenceGeoInfo,
@@ -17,6 +20,8 @@ import type {
   RouteOption,
 } from "./types";
 
+<<<<<<< ours
+=======
 type ComboboxOption = {
   value: string;
   label: string;
@@ -77,7 +82,7 @@ function Combobox({
 
   return (
     <label className="flex w-full flex-col gap-[6px]">
-      <span className="text-[12px] leading-none font-normal text-[#405C62]">{label}</span>
+      <span className="text-[14px] leading-none font-normal text-[#405C62]">{label}</span>
       <div ref={containerRef} className="relative w-full">
         <div className="relative">
           <input
@@ -98,7 +103,7 @@ function Combobox({
             }}
             placeholder={placeholder}
             disabled={disabled}
-            className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 pr-10 text-base text-[#0D3233] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+            className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 pr-10 text-[18px] text-[#0D3233] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <ChevronDown
             size={20}
@@ -118,7 +123,7 @@ function Combobox({
                   e.preventDefault();
                   handleSelect(option.value);
                 }}
-                className={`w-full px-3 py-2.5 text-left text-base hover:bg-[#E9EDE9] ${
+                className={`w-full px-3 py-2.5 text-left text-[18px] hover:bg-[#E9EDE9] ${
                   option.value === value ? "bg-[#DDE2DD]" : ""
                 }`}
               >
@@ -130,7 +135,7 @@ function Combobox({
 
         {isOpen && !disabled && filteredOptions.length === 0 && (
           <div className="absolute z-50 mt-1 w-full rounded-[12px] border border-[#B3B5B3] bg-white shadow-lg px-3 py-2.5">
-            <p className="m-0 text-base text-[#8A9BA7]">No se encontraron resultados</p>
+            <p className="m-0 text-[18px] text-[#8A9BA7]">No se encontraron resultados</p>
           </div>
         )}
       </div>
@@ -138,6 +143,7 @@ function Combobox({
   );
 }
 
+>>>>>>> theirs
 type RegistroFormProps = {
   mode: "create" | "edit";
   source: RegistroSource;
@@ -155,6 +161,7 @@ type RegistroFormProps = {
   existingEvidences: EvidenceItem[];
   recordId: number | null;
   submitLabel: string;
+  currentUserName: string;
 };
 
 const INITIAL_ACTION_STATE: RegistroActionState = {
@@ -350,10 +357,11 @@ export default function RegistroForm({
   existingEvidences,
   recordId,
   submitLabel,
+  currentUserName,
 }: RegistroFormProps) {
   const router = useRouter();
   const action = mode === "create" ? createRegistroAction : updateRegistroAction;
-  const [state, formAction, pending] = useActionState(action, INITIAL_ACTION_STATE);
+  const [state, , pending] = useActionState(action, INITIAL_ACTION_STATE);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(initialRouteId);
   const [selectedEstablishmentId, setSelectedEstablishmentId] = useState<number | null>(
     initialEstablishmentId,
@@ -395,25 +403,21 @@ export default function RegistroForm({
     [availableProductIds, productOptions],
   );
 
-  const establishmentComboboxOptions = useMemo(
-    () => [
-      { value: "", label: "Seleccionar..." },
-      ...establishmentOptions.map((option) => ({
+  const establishmentFieldOptions = useMemo<MobileSelectOption[]>(
+    () =>
+      establishmentOptions.map((option) => ({
         value: String(option.id),
         label: buildEstablishmentLabel(option, routeById),
       })),
-    ],
     [establishmentOptions, routeById],
   );
 
-  const productComboboxOptions = useMemo(
-    () => [
-      { value: "", label: "Seleccionar..." },
-      ...filteredProducts.map((option) => ({
+  const productFieldOptions = useMemo<MobileSelectOption[]>(
+    () =>
+      filteredProducts.map((option) => ({
         value: String(option.id),
         label: `${option.name} (${option.sku})`,
       })),
-    ],
     [filteredProducts],
   );
 
@@ -521,12 +525,41 @@ export default function RegistroForm({
 
       setGeoPermissionState("granted");
 
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const stampedFiles = await Promise.all(
+        compressedFiles.map(async (file, index) => {
+          const geo = geoResult.value[index];
+          if (!geo) return file;
+
+          const stampLines = buildEvidenceStampLines({
+            establishmentName: selectedEstablishment?.name ?? "",
+            userName: currentUserName,
+            capturedAt: geo.capturedAt,
+            lat: geo.lat,
+            lng: geo.lng,
+            accuracy: geo.accuracy,
+            locale: "es-CO",
+            timeZone,
+          });
+
+          try {
+            return await stampEvidenceFile({
+              file,
+              lines: stampLines,
+            });
+          } catch (stampError) {
+            console.error("No se pudo estampar una evidencia, se subira original procesada.", stampError);
+            return file;
+          }
+        }),
+      );
+
       // Agregar a las evidencias existentes
-      setNewEvidenceFiles((prev) => [...prev, ...compressedFiles]);
+      setNewEvidenceFiles((prev) => [...prev, ...stampedFiles]);
       setNewEvidenceGeos((prev) => [...prev, ...geoResult.value]);
       setNewEvidencePreviewUrls((prev) => [
         ...prev,
-        ...compressedFiles.map((file) => URL.createObjectURL(file)),
+        ...stampedFiles.map((file) => URL.createObjectURL(file)),
       ]);
     } catch (error) {
       console.error(error);
@@ -558,6 +591,10 @@ export default function RegistroForm({
     if (pending) return;
     if (remainingCapacity <= 0) {
       setClientError("Ya alcanzaste el maximo de 6 evidencias.");
+      return;
+    }
+    if (!selectedEstablishment) {
+      setClientError("Selecciona ubicacion antes de agregar evidencias.");
       return;
     }
 
@@ -697,9 +734,9 @@ export default function RegistroForm({
 
         router.push(`/registros/exito?${params.toString()}`);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error(err);
-        setClientError(err.message || "Error inesperado.");
+        setClientError(err instanceof Error ? err.message : "Error inesperado.");
         setIsSubmitting(false);
     }
   }
@@ -719,11 +756,15 @@ export default function RegistroForm({
         <input type="hidden" name="removeEvidenceIdsJson" value="[]" />
 
         <div className="flex w-full flex-col gap-3">
-          <Combobox
+          <MobileSelectField
             label="Ubicacion"
             value={String(effectiveEstablishmentId ?? "")}
-            options={establishmentComboboxOptions}
+            options={establishmentFieldOptions}
             onChange={(value) => {
+              if (newEvidenceFiles.length > 0) {
+                setClientError("Elimina las evidencias nuevas antes de cambiar la ubicacion.");
+                return;
+              }
               const establishmentId = toNullableNumber(value);
               const establishment = establishmentOptions.find(
                 (item) => item.id === establishmentId,
@@ -733,20 +774,30 @@ export default function RegistroForm({
               setSelectedProductId(null);
             }}
             disabled={mode === "edit"}
-            placeholder="Buscar o seleccionar ubicación..."
+            placeholder="Seleccionar ubicacion..."
+            searchPlaceholder="Buscar ubicacion..."
+            emptyMessage="No hay ubicaciones disponibles."
+            required
           />
 
-          <Combobox
+          <MobileSelectField
             label="Producto"
             value={String(effectiveProductId ?? "")}
-            options={productComboboxOptions}
+            options={productFieldOptions}
             onChange={(value) => setSelectedProductId(toNullableNumber(value))}
             disabled={mode === "edit"}
-            placeholder="Buscar o seleccionar producto..."
+            placeholder="Seleccionar producto..."
+            searchPlaceholder="Buscar producto..."
+            emptyMessage={
+              effectiveEstablishmentId
+                ? "No hay productos disponibles para esta ubicacion."
+                : "Selecciona una ubicacion para ver productos."
+            }
+            required
           />
 
           <label className="flex w-full flex-col gap-[6px]">
-            <span className="text-[12px] leading-none font-normal text-[#405C62]">
+            <span className="text-[14px] leading-none font-normal text-[#405C62]">
               Inventario Sistema
             </span>
             <input
@@ -754,12 +805,12 @@ export default function RegistroForm({
               name="systemInventory"
               min={0}
               defaultValue={initialSystemInventory ?? undefined}
-              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-base text-[#0D3233] outline-none"
+              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[18px] text-[#0D3233] outline-none"
             />
           </label>
 
           <label className="flex w-full flex-col gap-[6px]">
-            <span className="text-[12px] leading-none font-normal text-[#405C62]">
+            <span className="text-[14px] leading-none font-normal text-[#405C62]">
               Inventario Real
             </span>
             <input
@@ -767,11 +818,11 @@ export default function RegistroForm({
               name="realInventory"
               min={0}
               defaultValue={initialRealInventory ?? undefined}
-              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-base text-[#0D3233] outline-none"
+              className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[18px] text-[#0D3233] outline-none"
             />
           </label>
 
-          <p className="m-0 text-[13px] leading-none font-normal text-[#405C62]">
+          <p className="m-0 text-[15px] leading-none font-normal text-[#405C62]">
             Evidencias
           </p>
 
@@ -801,7 +852,7 @@ export default function RegistroForm({
                       <button
                         type="button"
                         onClick={() => handleRemoveNewEvidence(index - existingEvidenceUrls.length)}
-                        className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#A43E2A] text-white text-[14px] leading-none shadow-md hover:bg-[#8A3322] transition-colors"
+                        className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#A43E2A] text-white text-[16px] leading-none shadow-md hover:bg-[#8A3322] transition-colors"
                         aria-label="Eliminar evidencia"
                       >
                         ×
@@ -817,7 +868,7 @@ export default function RegistroForm({
                     key={`slot-add-${index}`}
                     type="button"
                     onClick={handleOpenEvidencePicker}
-                    className="flex h-[88px] w-full items-center justify-center rounded-[12px] border border-[#B3B5B3] bg-white text-[32px] leading-none text-[#8A9BA7]"
+                    className="flex h-[88px] w-full items-center justify-center rounded-[12px] border border-[#B3B5B3] bg-white text-[34px] leading-none text-[#8A9BA7]"
                     aria-label="Agregar evidencia"
                   >
                     +
@@ -847,7 +898,7 @@ export default function RegistroForm({
           />
 
           <label className="flex w-full flex-col gap-[6px]">
-            <span className="text-[12px] leading-none font-normal text-[#405C62]">
+            <span className="text-[14px] leading-none font-normal text-[#405C62]">
               Comentarios adicionales
             </span>
             <textarea
@@ -855,22 +906,22 @@ export default function RegistroForm({
               rows={4}
               defaultValue={initialComments ?? ""}
               placeholder="Notas..."
-              className="h-24 w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-base text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+              className="h-24 w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[18px] text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
             />
           </label>
 
 
           {clientError ? (
-            <p className="m-0 text-[12px] leading-none font-normal text-[#A43E2A]">{clientError}</p>
+            <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{clientError}</p>
           ) : null}
           {state.error ? (
-            <p className="m-0 text-[12px] leading-none font-normal text-[#A43E2A]">{state.error}</p>
+            <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{state.error}</p>
           ) : null}
 
           <div className="flex w-full flex-col gap-3 pt-1 pb-2">
             <Link
               href={backHref}
-              className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+              className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
             >
               Cancelar
             </Link>
@@ -884,7 +935,7 @@ export default function RegistroForm({
                 effectiveEstablishmentId === null ||
                 effectiveProductId === null
               }
-              className="flex h-11 w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[14px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-11 w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[16px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending || isSubmitting ? "Guardando..." : submitLabel}
             </button>

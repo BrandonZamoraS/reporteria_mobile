@@ -65,7 +65,7 @@ export default async function RegistrosPage() {
       displayName={getDisplayName(user, profile.name)}
       profilePhotoUrl={profilePhotoUrl}
       onLogout={logoutAction}
-      contentClassName="relative flex min-h-0 flex-1 w-full pt-4"
+      contentClassName="relative flex h-full min-h-0 w-full flex-col pt-4"
     >
       <RegistrosListView
         initialRecords={initialRecords}

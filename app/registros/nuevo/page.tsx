@@ -177,11 +177,12 @@ export default async function RegistroNuevoPage({
       : null;
   const initialProductId =
     parsedProductId !== null && validProductIds.has(parsedProductId) ? parsedProductId : null;
+  const displayName = getDisplayName(user, profile.name);
 
   return (
     <AppShell
       title="Crear registro"
-      displayName={getDisplayName(user, profile.name)}
+      displayName={displayName}
       profilePhotoUrl={profilePhotoUrl}
       onLogout={logoutAction}
       contentClassName="relative flex min-h-0 flex-1 h-full w-full pt-4 overflow-hidden"
@@ -203,6 +204,7 @@ export default async function RegistroNuevoPage({
         existingEvidences={[]}
         recordId={null}
         submitLabel="Guardar registro"
+        currentUserName={displayName}
       />
     </AppShell>
   );

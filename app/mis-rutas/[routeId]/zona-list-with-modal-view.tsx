@@ -42,7 +42,7 @@ export default function ZonaListWithModalView({
       <section className="min-h-0 flex-1 overflow-y-auto pb-20 pt-1">
         <div className="flex w-full flex-col gap-3">
           {items.length === 0 ? (
-            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[14px] text-[#405C62]">
+            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[16px] text-[#405C62]">
               {emptyMessage}
             </div>
           ) : null}
@@ -54,8 +54,8 @@ export default function ZonaListWithModalView({
               onClick={() => setActiveEstablishmentId(item.id)}
               className="flex h-[72px] w-full flex-col justify-center gap-1 rounded-[12px] bg-[#5A7A84] px-3 text-left"
             >
-              <p className="m-0 text-[14px] leading-none font-normal text-white">{item.name}</p>
-              <p className="m-0 text-[12px] leading-none font-normal text-[#E9EDE9]">{item.meta}</p>
+              <p className="m-0 text-[16px] leading-none font-normal text-white">{item.name}</p>
+              <p className="m-0 text-[14px] leading-none font-normal text-[#E9EDE9]">{item.meta}</p>
             </button>
           ))}
         </div>
@@ -64,7 +64,7 @@ export default function ZonaListWithModalView({
       <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-[#E9EDE9] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
         <Link
           href={backHref}
-          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Volver
         </Link>

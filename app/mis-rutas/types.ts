@@ -11,6 +11,7 @@ export type MapMarker = {
   lat: number;
   lng: number;
   label: string;
+  wazeHref: string | null;
 };
 
 export type RouteLapsoSummary = {

@@ -60,12 +60,12 @@ function ProductRecordCard({
 
   return (
     <article className="rounded-[12px] border border-[#B3B5B3] bg-white p-3">
-      <p className="m-0 text-[14px] leading-none font-normal text-[#0D3233]">{item.productName}</p>
-      <p className="mt-1 text-[12px] leading-none font-normal text-[#5A7984]">SKU: {item.productSku}</p>
-      <p className="mt-1 text-[12px] leading-none font-normal text-[#405C62]">{metadataText}</p>
+      <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">{item.productName}</p>
+      <p className="mt-1 text-[14px] leading-none font-normal text-[#5A7984]">SKU: {item.productSku}</p>
+      <p className="mt-1 text-[14px] leading-none font-normal text-[#405C62]">{metadataText}</p>
 
       {source === "completadas" ? (
-        <p className="mt-1 text-[12px] leading-none font-normal text-[#5A7984]">
+        <p className="mt-1 text-[14px] leading-none font-normal text-[#5A7984]">
           Inventario sistema: {item.systemInventory ?? "-"} | Inventario real:{" "}
           {item.realInventory ?? "-"}
         </p>
@@ -74,7 +74,7 @@ function ProductRecordCard({
       <div className="mt-3 flex flex-col gap-2">
         <Link
           href={actionHref}
-          className={`flex h-10 items-center justify-center rounded-[10px] text-[13px] leading-none font-normal ${
+          className={`flex h-10 items-center justify-center rounded-[10px] text-[15px] leading-none font-normal ${
             hasActiveLapso
               ? "bg-[#0D3233] text-white"
               : "pointer-events-none bg-[#8A9BA7] text-white"
@@ -174,13 +174,13 @@ export default function SupermercadoDetalleView({
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <section className="min-h-0 flex-1 overflow-y-auto pb-20 pt-1">
         <div className="rounded-[12px] border border-[#B3B5B3] bg-[#E9EDE9] p-3">
-          <p className="m-0 text-[12px] leading-none font-normal text-[#5A7984]">Establecimiento</p>
-          <p className="mt-1 text-[16px] leading-none font-normal text-[#0D3233]">{establishmentName}</p>
+          <p className="m-0 text-[14px] leading-none font-normal text-[#5A7984]">Establecimiento</p>
+          <p className="mt-1 text-[18px] leading-none font-normal text-[#0D3233]">{establishmentName}</p>
         </div>
 
         <div className="mt-3 flex w-full flex-col gap-3">
           {items.length === 0 ? (
-            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[14px] text-[#405C62]">
+            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[16px] text-[#405C62]">
               {emptyMessage}
             </div>
           ) : null}
@@ -199,14 +199,14 @@ export default function SupermercadoDetalleView({
           <div ref={sentinelRef} className="h-6 w-full" aria-hidden="true" />
 
           {isLoadingMore ? (
-            <p className="m-0 pb-2 text-center text-[12px] text-[#405C62]">Cargando productos...</p>
+            <p className="m-0 pb-2 text-center text-[14px] text-[#405C62]">Cargando productos...</p>
           ) : null}
 
           {loadError ? (
             <button
               type="button"
               onClick={() => void loadMore()}
-              className="h-10 w-full rounded-[10px] border border-[#B3B5B3] bg-white text-[13px] text-[#0D3233]"
+              className="h-10 w-full rounded-[10px] border border-[#B3B5B3] bg-white text-[15px] text-[#0D3233]"
             >
               {loadError} Reintentar
             </button>
@@ -217,7 +217,7 @@ export default function SupermercadoDetalleView({
       <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-[#E9EDE9] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
         <Link
           href={backHref}
-          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Volver
         </Link>

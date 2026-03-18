@@ -75,7 +75,7 @@ export default function AppShell({
                 <ArrowLeft size={26} strokeWidth={3.5} />
               </button>
             )}
-            <p className="m-0 text-[20px] leading-none font-normal text-[#0D3233]">
+            <p className="m-0 text-[22px] leading-none font-normal text-[#0D3233]">
               {title}
             </p>
           </div>
@@ -122,13 +122,13 @@ export default function AppShell({
                   </div>
                 ) : (
                   <div
-                    className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[#B3B5B3] text-[28px] leading-none font-semibold text-white"
+                    className="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-[#B3B5B3] text-[30px] leading-none font-semibold text-white"
                     style={{ backgroundColor: getAvatarColor(displayName) }}
                   >
                     {getInitial(displayName)}
                   </div>
                 )}
-                <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">
+                <p className="m-0 text-[18px] leading-none font-normal text-[#0D3233]">
                   {displayName}
                 </p>
               </div>
@@ -139,7 +139,7 @@ export default function AppShell({
                   onClick={() => setMenuOpen(false)}
                   className="flex w-full flex-col justify-center gap-1 rounded-[12px] bg-[#0D3233] p-3"
                 >
-                  <span className="text-[14px] leading-none font-normal text-white">
+                  <span className="text-[16px] leading-none font-normal text-white">
                     Mi perfil
                   </span>
                 </Link>
@@ -149,7 +149,7 @@ export default function AppShell({
                     type="submit"
                     className="flex w-full cursor-pointer flex-col justify-center gap-1 rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-left"
                   >
-                    <span className="text-[14px] leading-none font-normal text-[#0D3233]">
+                    <span className="text-[16px] leading-none font-normal text-[#0D3233]">
                       Cerrar sesion
                     </span>
                   </button>

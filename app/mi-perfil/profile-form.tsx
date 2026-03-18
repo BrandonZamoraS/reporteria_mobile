@@ -86,7 +86,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="h-[44px] w-full rounded-[12px] border-0 bg-[#0D3233] text-[14px] leading-none font-normal text-white disabled:opacity-70"
+      className="h-[44px] w-full rounded-[12px] border-0 bg-[#0D3233] text-[16px] leading-none font-normal text-white disabled:opacity-70"
     >
       {pending ? "Guardando..." : "Guardar"}
     </button>
@@ -167,7 +167,7 @@ export default function ProfileForm({
             />
           ) : (
             <span
-              className="flex h-full w-full items-center justify-center text-[28px] leading-none font-semibold text-white"
+              className="flex h-full w-full items-center justify-center text-[30px] leading-none font-semibold text-white"
               style={{ backgroundColor: getAvatarColor(initialName) }}
             >
               {getInitial(initialName)}
@@ -177,7 +177,7 @@ export default function ProfileForm({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="profilePhoto"
-            className="cursor-pointer text-[13px] leading-none font-normal text-[#7C8745]"
+            className="cursor-pointer text-[15px] leading-none font-normal text-[#7C8745]"
           >
             {isPhotoPending ? "Procesando foto..." : profilePhotoUrl ? "Cambiar foto" : "Agregar foto"}
           </label>
@@ -186,12 +186,12 @@ export default function ProfileForm({
               type="button"
               disabled={isPhotoPending}
               onClick={handleRemovePhoto}
-              className="w-fit border-0 bg-transparent p-0 text-[12px] leading-none font-normal text-[#5A7984] underline disabled:opacity-50"
+              className="w-fit border-0 bg-transparent p-0 text-[14px] leading-none font-normal text-[#5A7984] underline disabled:opacity-50"
             >
               Quitar foto
             </button>
           ) : (
-            <p className="m-0 text-[12px] leading-none font-normal text-[#5A7984]">
+            <p className="m-0 text-[14px] leading-none font-normal text-[#5A7984]">
               Sin foto cargada
             </p>
           )}
@@ -212,12 +212,12 @@ export default function ProfileForm({
         />
       </div>
       {photoError ? (
-        <p className="m-0 text-[12px] leading-[1.3] font-normal text-[#B42318]">
+        <p className="m-0 text-[14px] leading-[1.3] font-normal text-[#B42318]">
           {photoError}
         </p>
       ) : null}
       {photoMessage ? (
-        <p className="m-0 text-[12px] leading-[1.3] font-normal text-[#0D3233]">
+        <p className="m-0 text-[14px] leading-[1.3] font-normal text-[#0D3233]">
           {photoMessage}
         </p>
       ) : null}
@@ -225,7 +225,7 @@ export default function ProfileForm({
       <div className="flex w-full flex-col gap-[6px]">
         <label
           htmlFor="name"
-          className="m-0 text-[12px] leading-none font-normal text-[#405C62]"
+          className="m-0 text-[14px] leading-none font-normal text-[#405C62]"
         >
           Nombre
         </label>
@@ -234,7 +234,7 @@ export default function ProfileForm({
           name="name"
           type="text"
           defaultValue={initialName}
-          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none"
+          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none"
           required
         />
       </div>
@@ -242,7 +242,7 @@ export default function ProfileForm({
       <div className="flex w-full flex-col gap-[6px]">
         <label
           htmlFor="phone"
-          className="m-0 text-[12px] leading-none font-normal text-[#405C62]"
+          className="m-0 text-[14px] leading-none font-normal text-[#405C62]"
         >
           Telefono
         </label>
@@ -251,90 +251,180 @@ export default function ProfileForm({
           name="phone"
           type="text"
           defaultValue={initialPhone}
-          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none"
+          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none"
         />
       </div>
 
-      <p className="m-0 text-[14px] leading-none font-normal text-[#0D3233]">
+      <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">
         Cambiar contrasena
       </p>
 
       <div className="flex w-full flex-col gap-[6px]">
         <label
           htmlFor="currentPassword"
-          className="m-0 text-[12px] leading-none font-normal text-[#405C62]"
+          className="m-0 text-[14px] leading-none font-normal text-[#405C62]"
         >
           Contrasena actual
         </label>
+<<<<<<< ours
+        <div className="relative">
+          <input
+            id="currentPassword"
+            name="currentPassword"
+            type={showCurrentPassword ? "text" : "password"}
+            placeholder="********"
+            className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white pl-3 pr-10 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowCurrentPassword((prev) => !prev)}
+            aria-label={showCurrentPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0 text-[#8A9BA7]"
+          >
+            {showCurrentPassword ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
+=======
         <input
           id="currentPassword"
           name="currentPassword"
           type={showCurrentPassword ? "text" : "password"}
           placeholder="********"
-          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
         />
         <button
           type="button"
           onClick={() => setShowCurrentPassword((prev) => !prev)}
-          className="w-fit border-0 bg-transparent p-0 text-[12px] leading-none font-normal text-[#5A7984]"
+          className="w-fit border-0 bg-transparent p-0 text-[14px] leading-none font-normal text-[#5A7984]"
         >
           {showCurrentPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
         </button>
+>>>>>>> theirs
       </div>
 
       <div className="flex w-full flex-col gap-[6px]">
         <label
           htmlFor="newPassword"
-          className="m-0 text-[12px] leading-none font-normal text-[#405C62]"
+          className="m-0 text-[14px] leading-none font-normal text-[#405C62]"
         >
           Nueva contrasena
         </label>
+<<<<<<< ours
+        <div className="relative">
+          <input
+            id="newPassword"
+            name="newPassword"
+            type={showNewPassword ? "text" : "password"}
+            placeholder="********"
+            className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white pl-3 pr-10 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword((prev) => !prev)}
+            aria-label={showNewPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0 text-[#8A9BA7]"
+          >
+            {showNewPassword ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
+=======
         <input
           id="newPassword"
           name="newPassword"
           type={showNewPassword ? "text" : "password"}
           placeholder="********"
-          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
         />
         <button
           type="button"
           onClick={() => setShowNewPassword((prev) => !prev)}
-          className="w-fit border-0 bg-transparent p-0 text-[12px] leading-none font-normal text-[#5A7984]"
+          className="w-fit border-0 bg-transparent p-0 text-[14px] leading-none font-normal text-[#5A7984]"
         >
           {showNewPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
         </button>
+>>>>>>> theirs
       </div>
 
       <div className="flex w-full flex-col gap-[6px]">
         <label
           htmlFor="confirmPassword"
-          className="m-0 text-[12px] leading-none font-normal text-[#405C62]"
+          className="m-0 text-[14px] leading-none font-normal text-[#405C62]"
         >
           Confirmar contrasena
         </label>
+<<<<<<< ours
+        <div className="relative">
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="********"
+            className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white pl-3 pr-10 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            aria-label={showConfirmPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0 text-[#8A9BA7]"
+          >
+            {showConfirmPassword ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
+=======
         <input
           id="confirmPassword"
           name="confirmPassword"
           type={showConfirmPassword ? "text" : "password"}
           placeholder="********"
-          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          className="h-[44px] w-full rounded-[12px] border border-[#B3B5B3] bg-white px-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
         />
         <button
           type="button"
           onClick={() => setShowConfirmPassword((prev) => !prev)}
-          className="w-fit border-0 bg-transparent p-0 text-[12px] leading-none font-normal text-[#5A7984]"
+          className="w-fit border-0 bg-transparent p-0 text-[14px] leading-none font-normal text-[#5A7984]"
         >
           {showConfirmPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
         </button>
+>>>>>>> theirs
       </div>
 
       {state.error ? (
-        <p className="m-0 text-[12px] leading-[1.3] font-normal text-[#B42318]">
+        <p className="m-0 text-[14px] leading-[1.3] font-normal text-[#B42318]">
           {state.error}
         </p>
       ) : null}
       {state.success ? (
-        <p className="m-0 text-[12px] leading-[1.3] font-normal text-[#0D3233]">
+        <p className="m-0 text-[14px] leading-[1.3] font-normal text-[#0D3233]">
           Perfil actualizado.
         </p>
       ) : null}
@@ -344,7 +434,7 @@ export default function ProfileForm({
       <div className="flex h-[44px] w-full gap-3">
         <Link
           href="/home"
-          className="flex h-[44px] w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-[44px] w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Volver
         </Link>

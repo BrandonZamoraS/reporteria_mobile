@@ -6,6 +6,7 @@ import { getLapsoProgress } from "@/lib/route-lapsos";
 import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { MapMarker, RouteLapsoSummary } from "../types";
+import { buildWazeUrl } from "../map-runtime.mjs";
 import ZonaMapaView from "./zona-mapa-view";
 
 const PROFILE_PHOTO_BUCKET = "profile-photos";
@@ -31,18 +32,30 @@ function fallbackMarkers(routeId: number): MapMarker[] {
       lat: DEFAULT_CENTER.lat + 0.02 + offset,
       lng: DEFAULT_CENTER.lng - 0.03,
       label: "Punto 1",
+      wazeHref: buildWazeUrl({
+        lat: DEFAULT_CENTER.lat + 0.02 + offset,
+        lng: DEFAULT_CENTER.lng - 0.03,
+      }),
     },
     {
       id: "fallback-2",
       lat: DEFAULT_CENTER.lat - 0.015,
       lng: DEFAULT_CENTER.lng + 0.025 + offset,
       label: "Punto 2",
+      wazeHref: buildWazeUrl({
+        lat: DEFAULT_CENTER.lat - 0.015,
+        lng: DEFAULT_CENTER.lng + 0.025 + offset,
+      }),
     },
     {
       id: "fallback-3",
       lat: DEFAULT_CENTER.lat - 0.05,
       lng: DEFAULT_CENTER.lng - 0.005,
       label: "Punto 3",
+      wazeHref: buildWazeUrl({
+        lat: DEFAULT_CENTER.lat - 0.05,
+        lng: DEFAULT_CENTER.lng - 0.005,
+      }),
     },
   ];
 }
@@ -150,7 +163,7 @@ export default async function ZonaMapaPage({
     .not("long", "is", null);
 
   const dbMarkers = (establishments ?? [])
-    .map((establishment) => {
+    .map((establishment): MapMarker | null => {
       const lat = Number(establishment.lat);
       const lng = Number(establishment.long);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -159,6 +172,7 @@ export default async function ZonaMapaPage({
         lat,
         lng,
         label: establishment.name,
+        wazeHref: buildWazeUrl({ lat, lng }),
       } satisfies MapMarker;
     })
     .filter((marker): marker is MapMarker => marker !== null);

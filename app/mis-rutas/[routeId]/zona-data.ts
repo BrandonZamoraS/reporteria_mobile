@@ -127,9 +127,7 @@ async function buildSummariesForBatch({
       items.push({
         id: establishment.establishment_id,
         name: establishment.name,
-        meta: totalProducts > 0
-          ? `${completedProducts}/${totalProducts} productos`
-          : "Sin productos asignados",
+        meta: "",
       });
       continue;
     }

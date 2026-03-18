@@ -5,6 +5,7 @@ import Script from "next/script";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MapMarker, RouteLapsoSummary } from "../types";
+import { isGoogleMapsReady } from "../map-runtime.mjs";
 import { startRouteAction } from "./actions";
 
 type ZonaMapaViewProps = {
@@ -25,10 +26,14 @@ declare global {
           setZoom: (zoom: number) => void;
         };
         Marker: new (options: Record<string, unknown>) => {
+          addListener: (eventName: string, handler: () => void) => void;
           setMap: (map: unknown) => void;
         };
         LatLngBounds: new () => {
           extend: (point: { lat: number; lng: number }) => void;
+        };
+        event: {
+          trigger: (instance: unknown, eventName: string) => void;
         };
       };
     };
@@ -56,6 +61,7 @@ export default function ZonaMapaView({
   const markerRefs = useRef<Array<{ setMap: (map: unknown) => void }>>([]);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [hasScriptError, setHasScriptError] = useState(false);
+  const [visibilityRefreshNonce, setVisibilityRefreshNonce] = useState(0);
   const [startState, startAction, startPending] = useActionState(
     startRouteAction,
     INITIAL_START_ROUTE_STATE,
@@ -63,9 +69,36 @@ export default function ZonaMapaView({
   const hasActiveLapso = !!lapso;
 
   const effectiveCenter = useMemo(() => markers[0] ?? DEFAULT_CENTER, [markers]);
+  const hasGoogleMapsObject = typeof window !== "undefined" && !!window.google?.maps;
+  const mapIsReady = isGoogleMapsReady({
+    hasApiKey: !!apiKey,
+    hasScriptError,
+    isScriptLoaded,
+    hasGoogleMapsObject,
+  });
 
   useEffect(() => {
-    if (!apiKey || !isScriptLoaded || hasScriptError) return;
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        setVisibilityRefreshNonce((current) => current + 1);
+      }
+    };
+
+    const handlePageShow = () => {
+      setVisibilityRefreshNonce((current) => current + 1);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapIsReady) return;
     const googleMaps = window.google?.maps;
     if (!mapNodeRef.current || !googleMaps) return;
 
@@ -79,6 +112,7 @@ export default function ZonaMapaView({
       });
     }
 
+    googleMaps.event.trigger(mapRef.current, "resize");
     markerRefs.current.forEach((marker) => marker.setMap(null));
     markerRefs.current = [];
 
@@ -96,11 +130,16 @@ export default function ZonaMapaView({
         position: { lat: marker.lat, lng: marker.lng },
         title: marker.label,
       });
+      if (marker.wazeHref) {
+        mapMarker.addListener("click", () => {
+          window.location.assign(marker.wazeHref ?? "");
+        });
+      }
       markerRefs.current.push(mapMarker);
     });
 
     mapRef.current.fitBounds(bounds);
-  }, [apiKey, effectiveCenter, hasScriptError, isScriptLoaded, markers]);
+  }, [effectiveCenter, mapIsReady, markers, visibilityRefreshNonce]);
 
   useEffect(() => {
     if (!startState.success) return;
@@ -110,13 +149,13 @@ export default function ZonaMapaView({
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto pt-1">
       <div className="rounded-[12px] border border-[#B3B5B3] bg-white px-3 py-2">
-        <p className="m-0 text-[14px] leading-none font-normal text-[#0D3233]">{routeName}</p>
+        <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">{routeName}</p>
         {lapso ? (
-          <p className="m-0 mt-1 text-[12px] leading-none font-normal text-[#405C62]">
+          <p className="m-0 mt-1 text-[14px] leading-none font-normal text-[#405C62]">
             Lapso activo {lapso.dayLabel} ({lapso.progressPercent}%)
           </p>
         ) : (
-          <p className="m-0 mt-1 text-[12px] leading-none font-normal text-[#405C62]">
+          <p className="m-0 mt-1 text-[14px] leading-none font-normal text-[#405C62]">
             No hay lapso activo para esta ruta.
           </p>
         )}
@@ -127,18 +166,18 @@ export default function ZonaMapaView({
           id="google-maps-api-script"
           src={`https://maps.googleapis.com/maps/api/js?key=${apiKey}`}
           strategy="afterInteractive"
-          onLoad={() => setIsScriptLoaded(true)}
+          onReady={() => setIsScriptLoaded(true)}
           onError={() => setHasScriptError(true)}
         />
       ) : null}
 
       <div className="flex h-[clamp(180px,42dvh,420px)] w-full items-center justify-center overflow-hidden rounded-[12px] border border-[#B3B5B3] bg-white">
         {!apiKey ? (
-          <p className="px-4 text-center text-[13px] text-[#405C62]">
+          <p className="px-4 text-center text-[15px] text-[#405C62]">
             Agrega NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu .env.local para activar Google Maps.
           </p>
         ) : hasScriptError ? (
-          <p className="px-4 text-center text-[13px] text-[#A43E2A]">
+          <p className="px-4 text-center text-[15px] text-[#A43E2A]">
             No fue posible cargar Google Maps. Revisa la API key y restricciones.
           </p>
         ) : (
@@ -153,31 +192,31 @@ export default function ZonaMapaView({
             <button
               type="submit"
               disabled={startPending}
-              className="h-[60px] w-full rounded-[12px] border-0 bg-[#7C8745] text-[20px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-[60px] w-full rounded-[12px] border-0 bg-[#7C8745] text-[22px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {startPending ? "Iniciando..." : "Iniciar ruta"}
             </button>
             {startState.error ? (
-              <p className="m-0 text-center text-[12px] text-[#A43E2A]">{startState.error}</p>
+              <p className="m-0 text-center text-[14px] text-[#A43E2A]">{startState.error}</p>
             ) : null}
           </form>
         ) : null}
 
         <Link
           href={`/mis-rutas/${routeId}/pendientes`}
-          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[20px] leading-none font-normal text-white"
+          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[22px] leading-none font-normal text-white"
         >
           Ver pendientes
         </Link>
         <Link
           href={`/mis-rutas/${routeId}/completadas`}
-          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[20px] leading-none font-normal text-white"
+          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[22px] leading-none font-normal text-white"
         >
           Ver completadas
         </Link>
         <Link
           href="/mis-rutas"
-          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[20px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-[60px] w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[22px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Volver
         </Link>
