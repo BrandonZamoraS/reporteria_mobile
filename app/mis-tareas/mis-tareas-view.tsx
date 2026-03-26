@@ -54,7 +54,7 @@ function CompleteTaskForm({ task, onClose }: CompleteTaskFormProps) {
       <input type="hidden" name="taskId" value={task.id} />
 
       <div className="flex w-full flex-col gap-[6px]">
-        <label className="text-[14px] leading-none font-normal text-[#405C62]">
+        <label className="text-[12px] leading-none font-normal text-[#405C62]">
           Comentario
         </label>
         <textarea
@@ -62,20 +62,20 @@ function CompleteTaskForm({ task, onClose }: CompleteTaskFormProps) {
           rows={3}
           defaultValue={task.comment ?? ""}
           placeholder="Escribe un comentario para completar"
-          className="w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[16px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
+          className="w-full resize-none rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[14px] leading-none font-normal text-[#0D3233] outline-none placeholder:text-[#8A9BA7]"
         />
       </div>
 
       <button
         type="submit"
         disabled={pending}
-        className="h-11 w-full rounded-[12px] border-0 bg-[#0D3233] text-[16px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-11 w-full rounded-[12px] border-0 bg-[#0D3233] text-[14px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Guardando..." : "Marcar como completada"}
       </button>
 
       {state.error ? (
-        <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">
+        <p className="m-0 text-[12px] leading-none font-normal text-[#A43E2A]">
           {state.error}
         </p>
       ) : null}
@@ -83,7 +83,7 @@ function CompleteTaskForm({ task, onClose }: CompleteTaskFormProps) {
       <button
         type="button"
         onClick={onClose}
-        className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white text-[16px] leading-none font-normal text-[#0D3233]"
+        className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white text-[14px] leading-none font-normal text-[#0D3233]"
       >
         Volver
       </button>
@@ -235,7 +235,7 @@ export default function MisTareasView({
           <button
             type="button"
             onClick={() => setActiveTab("pendiente")}
-            className={`h-full w-full rounded-[8px] text-[14px] leading-none font-normal ${
+            className={`h-full w-full rounded-[8px] text-[12px] leading-none font-normal ${
               activeTab === "pendiente" ? "bg-[#0D3233] text-white" : "text-[#5A7984]"
             }`}
           >
@@ -244,7 +244,7 @@ export default function MisTareasView({
           <button
             type="button"
             onClick={() => setActiveTab("completada")}
-            className={`h-full w-full rounded-[8px] text-[14px] leading-none font-normal ${
+            className={`h-full w-full rounded-[8px] text-[12px] leading-none font-normal ${
               activeTab === "completada" ? "bg-[#0D3233] text-white" : "text-[#5A7984]"
             }`}
           >
@@ -254,7 +254,7 @@ export default function MisTareasView({
 
         <section className="mt-4 flex w-full flex-col gap-3">
           {filteredTasks.length === 0 ? (
-            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[16px] text-[#405C62]">
+            <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center text-[14px] text-[#405C62]">
               No hay tareas para esta vista.
             </div>
           ) : null}
@@ -271,14 +271,14 @@ export default function MisTareasView({
               }`}
             >
               <span
-                className={`text-[16px] leading-none font-normal ${
+                className={`text-[14px] leading-none font-normal ${
                   task.overdue ? "text-[#0D3233]" : "text-white"
                 }`}
               >
                 {task.title}
               </span>
               <span
-                className={`text-[14px] leading-none font-normal ${
+                className={`text-[12px] leading-none font-normal ${
                   task.overdue ? "text-[#5A7984]" : "text-[#E9EDE9]"
                 }`}
               >
@@ -290,14 +290,14 @@ export default function MisTareasView({
           <div ref={sentinelRef} className="h-6 w-full" aria-hidden="true" />
 
           {activeLoading ? (
-            <p className="m-0 pb-2 text-center text-[14px] text-[#405C62]">Cargando tareas...</p>
+            <p className="m-0 pb-2 text-center text-[12px] text-[#405C62]">Cargando tareas...</p>
           ) : null}
 
           {activeError ? (
             <button
               type="button"
               onClick={() => void loadMore(activeTab)}
-              className="h-10 w-full rounded-[10px] border border-[#B3B5B3] bg-white text-[15px] text-[#0D3233]"
+              className="h-10 w-full rounded-[10px] border border-[#B3B5B3] bg-white text-[13px] text-[#0D3233]"
             >
               {activeError} Reintentar
             </button>
@@ -308,7 +308,7 @@ export default function MisTareasView({
       <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-[#E9EDE9] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
         <Link
           href="/home"
-          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[16px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
+          className="flex h-11 w-full items-center justify-center rounded-[12px] border border-[#8A9BA7] bg-white text-[14px] leading-none font-normal text-[#0D3233] shadow-[0_2px_8px_0_#0D32330F]"
         >
           Volver
         </Link>
@@ -318,23 +318,23 @@ export default function MisTareasView({
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent p-4">
           <div className="w-full rounded-[12px] border border-[#B3B5B3] bg-[#E9EDE9] p-4">
             <div className="flex flex-col gap-3">
-              <p className="m-0 text-[18px] leading-none font-normal text-[#0D3233]">
+              <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">
                 {selectedTask.title}
               </p>
-              <p className="m-0 text-[15px] leading-none font-normal text-[#5A7984]">
+              <p className="m-0 text-[13px] leading-none font-normal text-[#5A7984]">
                 {selectedTask.description ?? "Sin descripcion."}
               </p>
-              <p className="m-0 text-[14px] leading-none font-normal text-[#405C62]">
+              <p className="m-0 text-[12px] leading-none font-normal text-[#405C62]">
                 Estado: {selectedTask.statusLabel} - Fecha limite:{" "}
                 {selectedTask.dueDateLabel ?? "Sin fecha limite"}
               </p>
 
               {isCompletedTask ? (
                 <div className="flex w-full flex-col gap-[6px]">
-                  <label className="text-[14px] leading-none font-normal text-[#405C62]">
+                  <label className="text-[12px] leading-none font-normal text-[#405C62]">
                     Comentario registrado
                   </label>
-                  <div className="min-h-[84px] w-full rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[16px] text-[#0D3233]">
+                  <div className="min-h-[84px] w-full rounded-[12px] border border-[#B3B5B3] bg-white p-3 text-[14px] text-[#0D3233]">
                     {selectedTask.comment?.trim() || "Sin comentarios."}
                   </div>
                 </div>
@@ -351,7 +351,7 @@ export default function MisTareasView({
                   <button
                     type="button"
                     onClick={() => setSelectedTask(null)}
-                    className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white text-[16px] leading-none font-normal text-[#0D3233]"
+                    className="h-11 w-full rounded-[12px] border border-[#B3B5B3] bg-white text-[14px] leading-none font-normal text-[#0D3233]"
                   >
                     Volver
                   </button>
