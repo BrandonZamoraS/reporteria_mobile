@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerEnv } from "@/lib/supabase/env";
 import { buildLoginActionState } from "./login-form-state.mjs";
 
 export type LoginActionState = {
@@ -20,8 +21,9 @@ export async function loginAction(
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseServerEnv();
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return buildLoginActionState({
       prevState,
       error: "Error de configuracion de autenticacion. Revisa variables de entorno.",
@@ -39,10 +41,10 @@ export async function loginAction(
     });
   }
 
-  if (password.length < 8) {
+  if (password.length < 6) {
     return buildLoginActionState({
       prevState,
-      error: "La contrasena debe tener al menos 8 caracteres.",
+      error: "La contrasena debe tener al menos 6 caracteres.",
       email,
     });
   }

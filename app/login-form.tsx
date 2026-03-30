@@ -162,7 +162,7 @@ export default function LoginForm({ urlError = null }: LoginFormProps) {
             placeholder="********"
             autoComplete="current-password"
             required
-            minLength={8}
+            minLength={6}
           />
           <button
             type="button"
