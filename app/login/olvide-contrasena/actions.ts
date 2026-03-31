@@ -1,9 +1,9 @@
 "use server";
 
-import { getSiteUrl } from "@/app/auth/auth-flow.mjs";
 import { getSupabaseServerEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createForgotPasswordSuccessState } from "../forgot-password-state.mjs";
+import { getAdminResetPasswordRedirectUrl } from "./recovery-redirect.mjs";
 
 export type ForgotPasswordActionState = {
   error: string | null;
@@ -33,7 +33,7 @@ export async function forgotPasswordAction(
     if (supabaseUrl && supabaseAnonKey) {
       const supabase = await createSupabaseServerClient();
       await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)}/auth/callback?type=recovery`,
+        redirectTo: getAdminResetPasswordRedirectUrl(process.env.NEXT_PUBLIC_ADMIN_SITE_URL),
       });
     }
   } catch {

@@ -37,9 +37,8 @@ export async function updateSession(request: NextRequest) {
   const isLoginRoute = pathname === "/login";
   const isForgotPasswordRoute = pathname === "/login/olvide-contrasena";
   const isAuthCallbackRoute = pathname === "/auth/callback";
-  const isResetPasswordRoute = pathname === "/auth/reset-contrasena";
   const isGuestEntryRoute = isRootRoute || isLoginRoute || isForgotPasswordRoute;
-  const isPublicAuthRoute = isGuestEntryRoute || isAuthCallbackRoute || isResetPasswordRoute;
+  const isPublicAuthRoute = isGuestEntryRoute || isAuthCallbackRoute;
 
   if (!user && !isPublicAuthRoute) {
     const url = request.nextUrl.clone();

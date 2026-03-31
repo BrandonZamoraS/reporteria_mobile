@@ -65,8 +65,6 @@ export async function GET(request: NextRequest) {
   const { supabase, applyCookies } = supabaseContext;
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type");
 
   const redirectWithCookies = (pathname: string) => {
     const response = NextResponse.redirect(new URL(pathname, request.url));
@@ -77,19 +75,6 @@ export async function GET(request: NextRequest) {
     await supabase.auth.signOut();
     return withClearedRoleCookie(redirectWithCookies(pathname));
   };
-
-  if (tokenHash && type === "recovery") {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: "recovery",
-    });
-
-    if (error) {
-      return signOutAndRedirect("/login?error=token-expired");
-    }
-
-    return redirectWithCookies("/auth/reset-contrasena");
-  }
 
   if (!code) {
     return signOutAndRedirect("/login?error=oauth");
