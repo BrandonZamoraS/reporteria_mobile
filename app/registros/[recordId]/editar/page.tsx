@@ -235,6 +235,7 @@ export default async function RegistroEditarPage({
             productId: product.product_id,
           },
         ]}
+        activeRegistroRelations={[]}
         initialRouteId={establishment.route_id}
         initialEstablishmentId={establishment.establishment_id}
         initialProductId={product.product_id}

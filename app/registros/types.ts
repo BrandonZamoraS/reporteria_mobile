@@ -70,3 +70,8 @@ export type ProductEstablishmentRelation = {
   establishmentId: number;
   productId: number;
 };
+
+export type ActiveRegistroRelation = {
+  establishmentId: number;
+  productId: number;
+};

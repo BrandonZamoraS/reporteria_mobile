@@ -6,6 +6,7 @@ import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import RegistroForm from "../registro-form";
 import type {
+  ActiveRegistroRelation,
   EstablishmentOption,
   ProductEstablishmentRelation,
   ProductOption,
@@ -96,7 +97,7 @@ export default async function RegistroNuevoPage({
 
   let routesQuery = supabase
     .from("route")
-    .select("route_id, nombre")
+    .select("route_id, nombre, assigned_user")
     .eq("is_active", true)
     .order("route_id", { ascending: true });
 
@@ -114,6 +115,39 @@ export default async function RegistroNuevoPage({
   let establishmentOptions: EstablishmentOption[] = [];
   let productRelations: ProductEstablishmentRelation[] = [];
   let productOptions: ProductOption[] = [];
+  let activeRegistroRelations: ActiveRegistroRelation[] = [];
+
+  let activeLapsosQuery = supabase
+    .from("route_lapso")
+    .select("lapso_id, route_id, user_id, start_at")
+    .eq("status", "en_curso")
+    .order("start_at", { ascending: false });
+
+  if (routeIds.length > 0) {
+    activeLapsosQuery = activeLapsosQuery.in("route_id", routeIds);
+  }
+
+  if (profile.role === "rutero") {
+    activeLapsosQuery = activeLapsosQuery.eq("user_id", profile.user_id);
+  }
+
+  const { data: activeLapsoRows } =
+    routeIds.length > 0 ? await activeLapsosQuery : { data: [] };
+
+  const activeLapsoIdByRoute = new Map<number, number>();
+  for (const route of routeRows ?? []) {
+    const routeLapsos = (activeLapsoRows ?? []).filter((lapso) => lapso.route_id === route.route_id);
+    if (routeLapsos.length === 0) continue;
+
+    const preferredLapso =
+      typeof route.assigned_user === "number"
+        ? routeLapsos.find((lapso) => lapso.user_id === route.assigned_user) ?? routeLapsos[0]
+        : routeLapsos[0];
+
+    if (preferredLapso) {
+      activeLapsoIdByRoute.set(route.route_id, preferredLapso.lapso_id);
+    }
+  }
 
   if (routeIds.length > 0) {
     const { data: establishmentRows } = await supabase
@@ -163,6 +197,41 @@ export default async function RegistroNuevoPage({
     }
   }
 
+  const activeLapsoIds = [...new Set(activeLapsoIdByRoute.values())];
+  if (activeLapsoIds.length > 0) {
+    const establishmentRouteIdById = new Map(
+      establishmentOptions.map((establishment) => [establishment.id, establishment.routeId]),
+    );
+    const { data: activeRecordRows } = await supabase
+      .from("check_record")
+      .select("lapso_id, establishment_id, product_id")
+      .in("lapso_id", activeLapsoIds);
+
+    const seenRelations = new Set<string>();
+    activeRegistroRelations = (activeRecordRows ?? []).flatMap((record) => {
+      const routeId = establishmentRouteIdById.get(record.establishment_id);
+      const expectedLapsoId =
+        typeof routeId === "number" ? activeLapsoIdByRoute.get(routeId) : undefined;
+
+      if (expectedLapsoId !== record.lapso_id) {
+        return [];
+      }
+
+      const relationKey = `${record.establishment_id}:${record.product_id}`;
+      if (seenRelations.has(relationKey)) {
+        return [];
+      }
+
+      seenRelations.add(relationKey);
+      return [
+        {
+          establishmentId: record.establishment_id,
+          productId: record.product_id,
+        },
+      ];
+    });
+  }
+
   const validRouteIds = new Set(routeOptions.map((option) => option.id));
   const validEstablishmentIds = new Set(
     establishmentOptions.map((option) => option.id),
@@ -195,6 +264,7 @@ export default async function RegistroNuevoPage({
         establishmentOptions={establishmentOptions}
         productOptions={productOptions}
         productRelations={productRelations}
+        activeRegistroRelations={activeRegistroRelations}
         initialRouteId={initialRouteId}
         initialEstablishmentId={initialEstablishmentId}
         initialProductId={initialProductId}

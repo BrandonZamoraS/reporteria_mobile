@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { isAllowedAppRole, type AllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  DUPLICATE_REGISTRO_ERROR,
+  isDuplicateCheckRecordInsertError,
+} from "./duplicate-check-record.mjs";
 import type { EvidenceGeoInfo, RegistroActionState } from "./types";
 
 const EVIDENCE_BUCKET = "check-evidences";
@@ -259,6 +263,24 @@ async function validateProductInEstablishment(
   return null;
 }
 
+async function findExistingLapsoRecordId(
+  auth: AuthContext,
+  lapsoId: number,
+  establishmentId: number,
+  productId: number,
+) {
+  const { data: existingRecord } = await auth.supabase
+    .from("check_record")
+    .select("record_id")
+    .eq("lapso_id", lapsoId)
+    .eq("establishment_id", establishmentId)
+    .eq("product_id", productId)
+    .limit(1)
+    .maybeSingle();
+
+  return existingRecord?.record_id ?? null;
+}
+
 async function uploadEvidenceRows(params: {
   auth: AuthContext;
   recordId: number;
@@ -485,6 +507,16 @@ export async function createRegistroAction(
     return { ...INITIAL_REGISTRO_STATE, error: relationError };
   }
 
+  const existingRecordId = await findExistingLapsoRecordId(
+    auth,
+    routeContextResult.context.lapsoId,
+    establishmentId,
+    productId,
+  );
+  if (existingRecordId) {
+    return { ...INITIAL_REGISTRO_STATE, error: DUPLICATE_REGISTRO_ERROR };
+  }
+
   const { data: insertedRecord, error: insertError } = await auth.supabase
     .from("check_record")
     .insert({
@@ -502,6 +534,9 @@ export async function createRegistroAction(
     .single();
 
   if (insertError || !insertedRecord) {
+    if (isDuplicateCheckRecordInsertError(insertError)) {
+      return { ...INITIAL_REGISTRO_STATE, error: DUPLICATE_REGISTRO_ERROR };
+    }
     return { ...INITIAL_REGISTRO_STATE, error: "No se pudo crear el registro." };
   }
 

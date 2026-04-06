@@ -8,9 +8,11 @@ import MobileSelectField, {
   type MobileSelectOption,
 } from "@/app/_components/mobile-select-field";
 import { createRegistroAction, updateRegistroAction, uploadSingleEvidenceAction } from "./actions";
+import { DUPLICATE_REGISTRO_ERROR } from "./duplicate-check-record.mjs";
 import { buildEvidenceStampLines, stampEvidenceFile } from "./evidence-stamp.mjs";
 import { isRegistroSubmitDisabled } from "./registro-form-state.mjs";
 import type {
+  ActiveRegistroRelation,
   EstablishmentOption,
   EvidenceGeoInfo,
   EvidenceItem,
@@ -28,6 +30,7 @@ type RegistroFormProps = {
   establishmentOptions: EstablishmentOption[];
   productOptions: ProductOption[];
   productRelations: ProductEstablishmentRelation[];
+  activeRegistroRelations: ActiveRegistroRelation[];
   initialRouteId: number | null;
   initialEstablishmentId: number | null;
   initialProductId: number | null;
@@ -51,6 +54,10 @@ const TOTAL_EVIDENCE_SLOTS = 6;
 function toNullableNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildActiveRegistroKey(establishmentId: number, productId: number) {
+  return `${establishmentId}:${productId}`;
 }
 
 type GeoFailureReason =
@@ -224,6 +231,7 @@ export default function RegistroForm({
   establishmentOptions,
   productOptions,
   productRelations,
+  activeRegistroRelations,
   initialRouteId,
   initialEstablishmentId,
   initialProductId,
@@ -256,6 +264,24 @@ export default function RegistroForm({
     () => new Map(routeOptions.map((route) => [route.id, route.name])),
     [routeOptions],
   );
+  const activeRegistroKeySet = useMemo(
+    () =>
+      new Set(
+        activeRegistroRelations.map((relation) =>
+          buildActiveRegistroKey(relation.establishmentId, relation.productId),
+        ),
+      ),
+    [activeRegistroRelations],
+  );
+  const productIdsByEstablishment = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const relation of productRelations) {
+      const current = map.get(relation.establishmentId) ?? [];
+      current.push(relation.productId);
+      map.set(relation.establishmentId, current);
+    }
+    return map;
+  }, [productRelations]);
 
   const effectiveEstablishmentId = selectedEstablishmentId;
   const selectedEstablishment = useMemo(
@@ -278,23 +304,47 @@ export default function RegistroForm({
     () => productOptions.filter((product) => availableProductIds.has(product.id)),
     [availableProductIds, productOptions],
   );
+  const lockedProductIdsForEstablishment = useMemo(() => {
+    if (!effectiveEstablishmentId) return new Set<number>();
+
+    return new Set(
+      activeRegistroRelations
+        .filter((relation) => relation.establishmentId === effectiveEstablishmentId)
+        .map((relation) => relation.productId),
+    );
+  }, [activeRegistroRelations, effectiveEstablishmentId]);
 
   const establishmentFieldOptions = useMemo<MobileSelectOption[]>(
     () =>
       establishmentOptions.map((option) => ({
         value: String(option.id),
         label: buildEstablishmentLabel(option, routeById),
+        disabled:
+          mode === "create" &&
+          (() => {
+            const productIds = productIdsByEstablishment.get(option.id) ?? [];
+            return (
+              productIds.length > 0 &&
+              productIds.every((productId) =>
+                activeRegistroKeySet.has(buildActiveRegistroKey(option.id, productId)),
+              )
+            );
+          })(),
       })),
-    [establishmentOptions, routeById],
+    [activeRegistroKeySet, establishmentOptions, mode, productIdsByEstablishment, routeById],
   );
 
   const productFieldOptions = useMemo<MobileSelectOption[]>(
     () =>
       filteredProducts.map((option) => ({
         value: String(option.id),
-        label: `${option.name} (${option.sku})`,
+        label:
+          mode === "create" && lockedProductIdsForEstablishment.has(option.id)
+            ? `${option.name} (${option.sku}) | Ya registrado`
+            : `${option.name} (${option.sku})`,
+        disabled: mode === "create" && lockedProductIdsForEstablishment.has(option.id),
       })),
-    [filteredProducts],
+    [filteredProducts, lockedProductIdsForEstablishment, mode],
   );
 
   const effectiveProductId =
@@ -307,6 +357,28 @@ export default function RegistroForm({
     () => existingEvidences.map((evidence) => evidence.imageUrl),
     [existingEvidences],
   );
+  const hasLockedSelection =
+    mode === "create" &&
+    effectiveEstablishmentId !== null &&
+    effectiveProductId !== null &&
+    activeRegistroKeySet.has(buildActiveRegistroKey(effectiveEstablishmentId, effectiveProductId));
+  const isEstablishmentFullyRegistered =
+    mode === "create" &&
+    effectiveEstablishmentId !== null &&
+    (() => {
+      const productIds = productIdsByEstablishment.get(effectiveEstablishmentId) ?? [];
+      return (
+        productIds.length > 0 &&
+        productIds.every((productId) =>
+          activeRegistroKeySet.has(buildActiveRegistroKey(effectiveEstablishmentId, productId)),
+        )
+      );
+    })();
+  const selectionLockMessage = hasLockedSelection
+    ? DUPLICATE_REGISTRO_ERROR
+    : isEstablishmentFullyRegistered
+      ? "Todos los productos de esta ubicacion ya fueron registrados en el lapso activo."
+      : null;
 
   const evidencePreviewUrls = useMemo(
     () => [...existingEvidenceUrls, ...newEvidencePreviewUrls].slice(0, TOTAL_EVIDENCE_SLOTS),
@@ -790,6 +862,11 @@ export default function RegistroForm({
           {clientError ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{clientError}</p>
           ) : null}
+          {selectionLockMessage ? (
+            <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">
+              {selectionLockMessage}
+            </p>
+          ) : null}
           {state.error ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{state.error}</p>
           ) : null}
@@ -806,6 +883,7 @@ export default function RegistroForm({
               disabled={isRegistroSubmitDisabled({
                 pending,
                 hasClientError: !!clientError,
+                hasLockedSelection,
                 routeId: effectiveRouteId,
                 establishmentId: effectiveEstablishmentId,
                 productId: effectiveProductId,
