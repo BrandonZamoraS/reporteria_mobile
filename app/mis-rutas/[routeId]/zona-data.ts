@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSqlContainsPattern, sanitizeListSearchQuery } from "@/lib/list-search.mjs";
+import { buildEstablishmentProgressById } from "@/app/mis-rutas/zona-summary-state.mjs";
 import type { ZonaListItem, ZonaSource } from "./zona-types";
 
 const ESTABLISHMENT_SCAN_BATCH = 60;
@@ -13,6 +14,7 @@ function formatRecordMeta(timeDate: string, status: string | null) {
         month: "short",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "America/Costa_Rica",
       });
 
   if (status === "issue") return `Con incidencia | ${dateLabel}`;
@@ -51,12 +53,11 @@ async function buildSummariesForBatch({
 }) {
   const establishmentIds = establishments.map((item) => item.establishment_id);
 
-  const totalProductsByEstablishment = new Map<number, number>();
-  const completedProductsByEstablishment = new Map<number, number>();
   const latestRecordByEstablishment = new Map<
     number,
     { timeDate: string; status: string | null }
   >();
+  let progressById = new Map<number, { totalProducts: number; completedProducts: number }>();
 
   if (establishmentIds.length > 0) {
     const { data: productRelations } = await supabase
@@ -64,37 +65,41 @@ async function buildSummariesForBatch({
       .select("establishment_id, product_id")
       .in("establishment_id", establishmentIds);
 
-    for (const relation of productRelations ?? []) {
-      totalProductsByEstablishment.set(
-        relation.establishment_id,
-        (totalProductsByEstablishment.get(relation.establishment_id) ?? 0) + 1,
-      );
-    }
-  }
+    const relatedProductIds = [...new Set((productRelations ?? []).map((item) => item.product_id))];
+    const { data: activeProducts } = relatedProductIds.length === 0
+      ? { data: [] as { product_id: number }[] }
+      : await supabase
+          .from("product")
+          .select("product_id")
+          .in("product_id", relatedProductIds)
+          .eq("is_active", true);
 
-  if (lapsoId && establishmentIds.length > 0) {
-    const { data: records } = await supabase
-      .from("check_record")
-      .select("establishment_id, product_id, time_date, status")
-      .eq("lapso_id", lapsoId)
-      .eq("user_id", lapsoUserId)
-      .in("establishment_id", establishmentIds)
-      .order("time_date", { ascending: false });
+    const { data: records } = lapsoId
+      ? await supabase
+          .from("check_record")
+          .select("establishment_id, product_id, time_date, status")
+          .eq("lapso_id", lapsoId)
+          .eq("user_id", lapsoUserId)
+          .in("establishment_id", establishmentIds)
+          .order("time_date", { ascending: false })
+      : { data: [] as {
+          establishment_id: number;
+          product_id: number;
+          time_date: string;
+          status: string | null;
+        }[] };
 
-    const distinctProductByEstablishment = new Set<string>();
+    progressById = buildEstablishmentProgressById({
+      establishmentIds,
+      productRelations: productRelations ?? [],
+      activeProductIds: (activeProducts ?? []).map((item) => item.product_id),
+      records: (records ?? []).map((record) => ({
+        establishment_id: record.establishment_id,
+        product_id: record.product_id,
+      })),
+    });
+
     for (const record of records ?? []) {
-      const productId = typeof record.product_id === "number" ? record.product_id : null;
-      if (productId !== null) {
-        const key = `${record.establishment_id}:${productId}`;
-        if (!distinctProductByEstablishment.has(key)) {
-          distinctProductByEstablishment.add(key);
-          completedProductsByEstablishment.set(
-            record.establishment_id,
-            (completedProductsByEstablishment.get(record.establishment_id) ?? 0) + 1,
-          );
-        }
-      }
-
       if (!latestRecordByEstablishment.has(record.establishment_id)) {
         latestRecordByEstablishment.set(record.establishment_id, {
           timeDate: record.time_date,
@@ -107,9 +112,9 @@ async function buildSummariesForBatch({
   const items: ZonaListItem[] = [];
 
   for (const establishment of establishments) {
-    const totalProducts = totalProductsByEstablishment.get(establishment.establishment_id) ?? 0;
-    const completedProducts =
-      completedProductsByEstablishment.get(establishment.establishment_id) ?? 0;
+    const progress = progressById.get(establishment.establishment_id);
+    const totalProducts = progress?.totalProducts ?? 0;
+    const completedProducts = progress?.completedProducts ?? 0;
 
     if (source === "pendientes") {
       if (!lapsoId) {
