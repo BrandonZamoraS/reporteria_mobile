@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSqlContainsPattern, sanitizeListSearchQuery } from "@/lib/list-search.mjs";
-import { buildEstablishmentProgressById } from "@/app/mis-rutas/zona-summary-state.mjs";
+import {
+  buildEstablishmentProgressById,
+  getEstablishmentRouteStatus,
+} from "@/app/mis-rutas/zona-summary-state.mjs";
 import type { ZonaListItem, ZonaSource } from "./zona-types";
 
 const ESTABLISHMENT_SCAN_BATCH = 60;
@@ -115,6 +118,11 @@ async function buildSummariesForBatch({
     const progress = progressById.get(establishment.establishment_id);
     const totalProducts = progress?.totalProducts ?? 0;
     const completedProducts = progress?.completedProducts ?? 0;
+    const establishmentStatus = getEstablishmentRouteStatus({
+      totalProducts,
+      completedProducts,
+      hasRecordedProducts: latestRecordByEstablishment.has(establishment.establishment_id),
+    });
 
     if (source === "pendientes") {
       if (!lapsoId) {
@@ -126,8 +134,7 @@ async function buildSummariesForBatch({
         continue;
       }
 
-      const isPending = totalProducts === 0 || completedProducts < totalProducts;
-      if (!isPending) {
+      if (establishmentStatus === "completed") {
         continue;
       }
 
@@ -139,7 +146,7 @@ async function buildSummariesForBatch({
       continue;
     }
 
-    if (!lapsoId || totalProducts === 0 || completedProducts < totalProducts) {
+    if (!lapsoId || establishmentStatus !== "completed") {
       continue;
     }
 

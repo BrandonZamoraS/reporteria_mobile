@@ -1,3 +1,23 @@
+export function getEstablishmentRouteStatus({
+  totalProducts,
+  completedProducts,
+  hasRecordedProducts,
+}) {
+  if (totalProducts <= 0) {
+    return hasRecordedProducts ? "completed" : "pending";
+  }
+
+  if (completedProducts <= 0) {
+    return "pending";
+  }
+
+  if (completedProducts < totalProducts) {
+    return "in_progress";
+  }
+
+  return "completed";
+}
+
 export function buildEstablishmentProgressById({
   establishmentIds,
   productRelations,
