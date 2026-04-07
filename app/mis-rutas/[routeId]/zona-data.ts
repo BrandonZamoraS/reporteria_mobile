@@ -8,7 +8,7 @@ import type { ZonaListItem, ZonaSource } from "./zona-types";
 
 const ESTABLISHMENT_SCAN_BATCH = 60;
 
-function formatRecordMeta(timeDate: string, status: string | null) {
+function formatRecordMeta(timeDate: string) {
   const date = new Date(timeDate);
   const dateLabel = Number.isNaN(date.getTime())
     ? "Sin fecha"
@@ -20,8 +20,6 @@ function formatRecordMeta(timeDate: string, status: string | null) {
         timeZone: "America/Costa_Rica",
       });
 
-  if (status === "issue") return `Con incidencia | ${dateLabel}`;
-  if (status === "not_applicable") return `No aplica | ${dateLabel}`;
   return `Completada | ${dateLabel}`;
 }
 
@@ -58,7 +56,7 @@ async function buildSummariesForBatch({
 
   const latestRecordByEstablishment = new Map<
     number,
-    { timeDate: string; status: string | null }
+    { timeDate: string }
   >();
   let progressById = new Map<number, { totalProducts: number; completedProducts: number }>();
 
@@ -80,7 +78,7 @@ async function buildSummariesForBatch({
     const { data: records } = lapsoId
       ? await supabase
           .from("check_record")
-          .select("establishment_id, product_id, time_date, status")
+          .select("establishment_id, product_id, time_date")
           .eq("lapso_id", lapsoId)
           .eq("user_id", lapsoUserId)
           .in("establishment_id", establishmentIds)
@@ -89,7 +87,6 @@ async function buildSummariesForBatch({
           establishment_id: number;
           product_id: number;
           time_date: string;
-          status: string | null;
         }[] };
 
     progressById = buildEstablishmentProgressById({
@@ -106,7 +103,6 @@ async function buildSummariesForBatch({
       if (!latestRecordByEstablishment.has(record.establishment_id)) {
         latestRecordByEstablishment.set(record.establishment_id, {
           timeDate: record.time_date,
-          status: record.status,
         });
       }
     }
