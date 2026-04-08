@@ -528,7 +528,7 @@ export async function createRegistroAction(
       real_inventory: realInventory,
       evidence_num: finalEvidenceCount,
       comments: comments || null,
-      time_date: new Date().toISOString(),
+      time_date: new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString(),
     })
     .select("record_id")
     .single();
@@ -698,7 +698,7 @@ export async function updateRegistroAction(
       real_inventory: realInventory,
       evidence_num: resultingEvidenceCount,
       comments: comments || null,
-      time_date: new Date().toISOString(),
+      time_date: new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString(),
     })
     .eq("record_id", recordId);
 
