@@ -371,7 +371,6 @@ async function deleteEvidenceRows(
 
 function revalidateRegistroRelatedPaths(routeId: number, establishmentId: number) {
   revalidatePath("/registros");
-  revalidatePath("/registros/nuevo");
   revalidatePath(`/mis-rutas/${routeId}`);
   revalidatePath(`/mis-rutas/${routeId}/pendientes`);
   revalidatePath(`/mis-rutas/${routeId}/completadas`);

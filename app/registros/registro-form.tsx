@@ -689,6 +689,14 @@ export default function RegistroForm({
     }
   }
 
+  if (state.success) {
+    return (
+      <div className="relative flex h-full min-h-0 w-full flex-col items-center justify-center">
+        <p className="text-[16px] leading-none font-normal text-[#405C62]">Guardando...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <form
