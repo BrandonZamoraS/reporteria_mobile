@@ -144,6 +144,15 @@ function parseEvidencePayload(formData: FormData): EvidencePayload | null {
   return { files, geos, removeEvidenceIds };
 }
 
+function parseManualEvidenceCount(formData: FormData) {
+  const rawValue = formData.get("manualEvidenceCount");
+  if (rawValue === null) return null;
+
+  const parsed = Number(String(rawValue).trim());
+  if (!Number.isInteger(parsed) || parsed < 0) return Number.NaN;
+  return parsed;
+}
+
 async function getAuthContext(): Promise<AuthContext | null> {
   const supabase = await createSupabaseServerClient();
   const {
@@ -458,6 +467,7 @@ export async function createRegistroAction(
   const realInventory = parseOptionalNonNegativeNumber(formData.get("realInventory"));
   const comments = String(formData.get("comments") ?? "").trim();
   const evidencePayload = parseEvidencePayload(formData);
+  const manualEvidenceCount = parseManualEvidenceCount(formData);
 
   if (!Number.isFinite(routeId) || !Number.isFinite(establishmentId) || !Number.isFinite(productId)) {
     return { ...INITIAL_REGISTRO_STATE, error: "Debes seleccionar ruta, establecimiento y producto." };
@@ -478,7 +488,11 @@ export async function createRegistroAction(
     };
   }
 
-  const finalEvidenceCount = evidencePayload.files.length;
+  if (Number.isNaN(manualEvidenceCount)) {
+    return { ...INITIAL_REGISTRO_STATE, error: "La cantidad de evidencias no es valida." };
+  }
+
+  const finalEvidenceCount = manualEvidenceCount ?? evidencePayload.files.length;
 
   if (finalEvidenceCount < 1 || finalEvidenceCount > MAX_EVIDENCE_PER_RECORD) {
     return {
@@ -540,7 +554,7 @@ export async function createRegistroAction(
     return { ...INITIAL_REGISTRO_STATE, error: "No se pudo crear el registro." };
   }
 
-  if (evidencePayload.files.length > 0) {
+  if (manualEvidenceCount === null && evidencePayload.files.length > 0) {
     const uploadResult = await uploadEvidenceRows({
         auth,
         recordId: insertedRecord.record_id,
@@ -560,6 +574,14 @@ export async function createRegistroAction(
 
   revalidateRegistroRelatedPaths(routeId, establishmentId);
   revalidatePath(`/registros/${insertedRecord.record_id}/editar`);
+
+  if (manualEvidenceCount !== null) {
+    return {
+      error: null,
+      success: true,
+      recordId: insertedRecord.record_id,
+    };
+  }
 
   const backHref = String(formData.get("backHref") ?? "").trim() || "/registros";
   const source = String(formData.get("source") ?? "").trim();
@@ -583,6 +605,7 @@ export async function updateRegistroAction(
   const realInventory = parseOptionalNonNegativeNumber(formData.get("realInventory"));
   const comments = String(formData.get("comments") ?? "").trim();
   const evidencePayload = parseEvidencePayload(formData);
+  const manualEvidenceCount = parseManualEvidenceCount(formData);
 
   if (!Number.isFinite(recordId)) {
     return { ...INITIAL_REGISTRO_STATE, error: "Registro invalido." };
@@ -601,6 +624,10 @@ export async function updateRegistroAction(
       ...INITIAL_REGISTRO_STATE,
       error: "Error en las evidencias o geolocalización.",
     };
+  }
+
+  if (Number.isNaN(manualEvidenceCount)) {
+    return { ...INITIAL_REGISTRO_STATE, error: "La cantidad de evidencias no es valida." };
   }
 
   const auth = await getAuthContext();
@@ -668,7 +695,7 @@ export async function updateRegistroAction(
   const removableIds = evidencePayload.removeEvidenceIds.filter((id) =>
     evidenceRows.some((row) => row.evidence_id === id));
 
-  const newFilesCount = evidencePayload.files.length;
+  const newFilesCount = manualEvidenceCount ?? evidencePayload.files.length;
 
   if (newFilesCount > MAX_EVIDENCE_PER_RECORD) {
     return {
@@ -709,7 +736,7 @@ export async function updateRegistroAction(
   // Handle deletions first
   await deleteEvidenceRows(auth, recordId, removableIds, evidenceRows);
 
-  if (evidencePayload.files.length > 0) {
+  if (manualEvidenceCount === null && evidencePayload.files.length > 0) {
     const uploadResult = await uploadEvidenceRows({
         auth,
         recordId,

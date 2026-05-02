@@ -701,6 +701,7 @@ export default function RegistroForm({
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <form
         action={formAction}
+        onSubmit={onFormSubmit}
         className="min-h-0 flex-1 overflow-y-auto pb-24 pt-1"
       >
         {recordId ? <input type="hidden" name="recordId" value={recordId} /> : null}
@@ -890,7 +891,7 @@ export default function RegistroForm({
             <button
               type="submit"
               disabled={isRegistroSubmitDisabled({
-                pending,
+                pending: pending || isSubmitting,
                 hasClientError: !!clientError,
                 hasLockedSelection,
                 routeId: effectiveRouteId,
@@ -900,7 +901,7 @@ export default function RegistroForm({
               })}
               className="flex h-11 w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[16px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending ? "Guardando..." : submitLabel}
+              {pending || isSubmitting ? "Guardando..." : submitLabel}
             </button>
           </div>
         </div>
