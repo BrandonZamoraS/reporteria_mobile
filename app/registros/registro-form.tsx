@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MobileSelectField, {
   type MobileSelectOption,
 } from "@/app/_components/mobile-select-field";
@@ -244,8 +244,6 @@ export default function RegistroForm({
   currentUserName,
 }: RegistroFormProps) {
   const router = useRouter();
-  const action = mode === "create" ? createRegistroAction : updateRegistroAction;
-  const [state, formAction, pending] = useActionState(action, INITIAL_ACTION_STATE);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(initialRouteId);
   const [selectedEstablishmentId, setSelectedEstablishmentId] = useState<number | null>(
     initialEstablishmentId,
@@ -255,6 +253,7 @@ export default function RegistroForm({
   const [newEvidenceGeos, setNewEvidenceGeos] = useState<EvidenceGeoInfo[]>([]);
   const [newEvidencePreviewUrls, setNewEvidencePreviewUrls] = useState<string[]>([]);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [geoPermissionState, setGeoPermissionState] = useState<PermissionState | "unknown">(
     "unknown",
   );
@@ -429,18 +428,6 @@ export default function RegistroForm({
     }
   }, [newEvidenceFiles]);
 
-  useEffect(() => {
-    if (!state.success || !state.recordId) return;
-    const params = new URLSearchParams({
-      recordId: String(state.recordId),
-      backHref,
-      source,
-      routeId: String(effectiveRouteId ?? ""),
-      establishmentId: String(effectiveEstablishmentId ?? ""),
-    });
-    router.push(`/registros/exito?${params.toString()}`);
-  }, [backHref, router, source, state.recordId, state.success, effectiveRouteId, effectiveEstablishmentId]);
-
   async function handleEvidenceFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
     const fileList = Array.from(event.currentTarget.files ?? []);
     const inputElement = event.currentTarget;
@@ -536,7 +523,7 @@ export default function RegistroForm({
   }
 
   function handleOpenEvidencePicker() {
-    if (pending) return;
+    if (isSubmitting) return;
     if (remainingCapacity <= 0) {
       setClientError("Ya alcanzaste el maximo de 6 evidencias.");
       return;
@@ -593,6 +580,7 @@ export default function RegistroForm({
     if (isSubmitting) return;
 
     setClientError(null);
+    setServerError(null);
     setIsSubmitting(true);
 
     try {
@@ -621,7 +609,7 @@ export default function RegistroForm({
         const result = await action(INITIAL_ACTION_STATE, formData);
 
         if (result.error || !result.success || !result.recordId) {
-            setClientError(result.error || "Error al guardar el registro.");
+            setServerError(result.error || "Error al guardar el registro.");
             setIsSubmitting(false);
             return;
         }
@@ -684,23 +672,14 @@ export default function RegistroForm({
 
     } catch (err: unknown) {
         console.error(err);
-        setClientError(err instanceof Error ? err.message : "Error inesperado.");
+        setServerError(err instanceof Error ? err.message : "Error inesperado.");
         setIsSubmitting(false);
     }
-  }
-
-  if (state.success) {
-    return (
-      <div className="relative flex h-full min-h-0 w-full flex-col items-center justify-center">
-        <p className="text-[16px] leading-none font-normal text-[#405C62]">Guardando...</p>
-      </div>
-    );
   }
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <form
-        action={formAction}
         onSubmit={onFormSubmit}
         className="min-h-0 flex-1 overflow-y-auto pb-24 pt-1"
       >
@@ -877,8 +856,8 @@ export default function RegistroForm({
               {selectionLockMessage}
             </p>
           ) : null}
-          {state.error ? (
-            <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{state.error}</p>
+          {serverError ? (
+            <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{serverError}</p>
           ) : null}
 
           <div className="flex w-full flex-col gap-3 pt-1 pb-2">
@@ -891,7 +870,7 @@ export default function RegistroForm({
             <button
               type="submit"
               disabled={isRegistroSubmitDisabled({
-                pending: pending || isSubmitting,
+                pending: isSubmitting,
                 hasClientError: !!clientError,
                 hasLockedSelection,
                 routeId: effectiveRouteId,
@@ -901,7 +880,7 @@ export default function RegistroForm({
               })}
               className="flex h-11 w-full items-center justify-center rounded-[12px] border-0 bg-[#0D3233] text-[16px] leading-none font-normal text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending || isSubmitting ? "Guardando..." : submitLabel}
+              {isSubmitting ? "Guardando..." : submitLabel}
             </button>
           </div>
         </div>
