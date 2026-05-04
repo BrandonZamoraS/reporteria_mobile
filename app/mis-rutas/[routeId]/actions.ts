@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getDurationDaysFromVisitPeriod } from "@/lib/route-lapsos";
+import {
+  closeExpiredRouteLapsos,
+  getDurationDaysFromVisitPeriod,
+  getRouteLapsoEndAt,
+  getRouteLapsoWeekStartAt,
+} from "@/lib/route-lapsos";
 
 export type StartRouteState = {
   error: string | null;
@@ -67,27 +72,32 @@ export async function startRouteAction(
     };
   }
 
+  await closeExpiredRouteLapsos(supabase);
+  const nowIso = new Date().toISOString();
+  const currentWeekStartIso = getRouteLapsoWeekStartAt();
+
   const { data: activeLapso } = await supabase
     .from("route_lapso")
     .select("lapso_id")
     .eq("route_id", routeId)
     .eq("user_id", routeRow.assigned_user)
     .eq("status", "en_curso")
+    .gte("start_at", currentWeekStartIso)
+    .gt("end_at", nowIso)
     .limit(1)
     .maybeSingle();
 
   if (!activeLapso) {
     const durationDays = getDurationDaysFromVisitPeriod(routeRow.visit_period);
     const startAt = new Date();
-    const endAt = new Date(startAt);
-    endAt.setUTCDate(endAt.getUTCDate() + durationDays);
+    const endAt = getRouteLapsoEndAt(startAt);
 
     const { error } = await supabase.from("route_lapso").insert({
       route_id: routeId,
       user_id: routeRow.assigned_user,
       duration_days: durationDays,
       start_at: startAt.toISOString(),
-      end_at: endAt.toISOString(),
+      end_at: endAt,
       status: "en_curso",
     });
 

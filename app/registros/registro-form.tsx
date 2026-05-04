@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MobileSelectField, {
   type MobileSelectOption,
 } from "@/app/_components/mobile-select-field";
-import { createRegistroAction, updateRegistroAction, uploadSingleEvidenceAction } from "./actions";
+import { createRegistroAction, updateRegistroAction } from "./actions";
 import { DUPLICATE_REGISTRO_ERROR } from "./duplicate-check-record.mjs";
 import { buildEvidenceStampLines, stampEvidenceFile } from "./evidence-stamp.mjs";
 import { isRegistroSubmitDisabled } from "./registro-form-state.mjs";
@@ -142,85 +142,6 @@ function buildEstablishmentLabel(
 ) {
   const routeName = routeById.get(establishment.routeId);
   return routeName ? `${establishment.name} | ${routeName}` : establishment.name;
-}
-
-async function compressImage(file: File): Promise<File> {
-  // If the file is already under 1MB, we don't need to compress it
-  // This is well within the 8MB limit and safe for network transmission
-  if (file.size < 1024 * 1024) return file;
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-
-    reader.onload = (event) => {
-      const img = document.createElement("img");
-      img.src = event.target?.result as string;
-
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1280; // Reasonable width for mobile viewing
-        let width = img.width;
-        let height = img.height;
-
-        // Resize logic to keep max dimension within MAX_WIDTH
-        if (width > height) {
-            if (width > MAX_WIDTH) {
-                height = Math.round((height * MAX_WIDTH) / width);
-                width = MAX_WIDTH;
-            }
-        } else {
-            if (height > MAX_WIDTH) {
-                width = Math.round((width * MAX_WIDTH) / height);
-                height = MAX_WIDTH;
-            }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          // If detailed processing fails, return original if < 8MB, else reject
-          if (file.size < 8 * 1024 * 1024) resolve(file);
-          else reject(new Error("No se pudo procesar la imagen y excede el limite de 8MB"));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-                // Same fallback logic
-                if (file.size < 8 * 1024 * 1024) resolve(file);
-                else reject(new Error("Error al recomprimir la imagen"));
-                return;
-            }
-            // Force jpeg for better compression
-            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-              type: "image/jpeg",
-              lastModified: Date.now(),
-            });
-            resolve(newFile);
-          },
-          "image/jpeg",
-          0.8, // 80% quality usually results in files < 500KB for 1280px
-        );
-      };
-
-      img.onerror = () => {
-         // Fallback: if load error, try sending original if within limits
-         if (file.size < 8 * 1024 * 1024) resolve(file);
-         else reject(new Error("Error al cargar la imagen y excede el limite de 8MB"));
-      };
-    };
-
-    reader.onerror = () => {
-         if (file.size < 8 * 1024 * 1024) resolve(file);
-         else reject(new Error("Error al leer el archivo y excede el limite de 8MB"));
-    };
-  });
 }
 
 export default function RegistroForm({
@@ -445,11 +366,7 @@ export default function RegistroForm({
     }
 
     try {
-      // Process files and get geo in parallel
-      const [geoResult, compressedFiles] = await Promise.all([
-        getCurrentGeoForEvidence(fileList.length),
-        Promise.all(fileList.map((f) => compressImage(f))),
-      ]);
+      const geoResult = await getCurrentGeoForEvidence(fileList.length);
 
       if (!geoResult.ok) {
         if (inputElement) inputElement.value = "";
@@ -462,7 +379,7 @@ export default function RegistroForm({
 
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const stampedFiles = await Promise.all(
-        compressedFiles.map(async (file, index) => {
+        fileList.map(async (file, index) => {
           const geo = geoResult.value[index];
           if (!geo) return file;
 
@@ -637,9 +554,17 @@ export default function RegistroForm({
             setClientError(`Subiendo imagen ${i + 1} de ${totalFiles}...`);
 
             try {
-                const uploadResult = await uploadSingleEvidenceAction(null, uploadFormData);
-                if (uploadResult.error) {
-                    console.error(`Error uploading file ${i}:`, uploadResult.error);
+                const response = await fetch("/api/registros/evidencias", {
+                    method: "POST",
+                    body: uploadFormData,
+                });
+                const uploadResult = (await response.json().catch(() => null)) as {
+                    error?: string;
+                    success?: boolean;
+                } | null;
+
+                if (!response.ok || uploadResult?.error || !uploadResult?.success) {
+                    console.error(`Error uploading file ${i}:`, uploadResult?.error);
                     uploadErrors++;
                 }
             } catch (e) {

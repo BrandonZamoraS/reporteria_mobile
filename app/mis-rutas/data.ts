@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AllowedAppRole } from "@/lib/auth/roles";
-import { getLapsoProgress } from "@/lib/route-lapsos";
+import {
+  closeExpiredRouteLapsos,
+  getLapsoProgress,
+  getRouteLapsoWeekStartAt,
+} from "@/lib/route-lapsos";
 import type { RouteListItem } from "./types";
 
 type Params = {
@@ -19,6 +23,10 @@ export async function getMisRutasPage({
   offset,
   limit,
 }: Params): Promise<{ items: RouteListItem[]; hasMore: boolean }> {
+  const nowIso = new Date().toISOString();
+  const currentWeekStartIso = getRouteLapsoWeekStartAt();
+  await closeExpiredRouteLapsos(supabase);
+
   let routesQuery = supabase
     .from("route")
     .select("route_id, nombre")
@@ -67,6 +75,8 @@ export async function getMisRutasPage({
       .select("lapso_id, route_id, user_id, start_at, end_at, status")
       .in("route_id", routeIds)
       .eq("status", "en_curso")
+      .gte("start_at", currentWeekStartIso)
+      .gt("end_at", nowIso)
       .order("start_at", { ascending: false });
 
     if (profile.role === "rutero") {

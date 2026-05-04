@@ -12,7 +12,8 @@
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
     "db:pull:migrations": "supabase migration fetch",
-    "db:migrations:list": "supabase migration list"
+    "db:migrations:list": "supabase migration list",
+    "cleanup:old-records": "node scripts/delete-records-before-date.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

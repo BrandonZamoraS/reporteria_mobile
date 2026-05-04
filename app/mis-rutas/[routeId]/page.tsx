@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import AppShell from "@/app/_components/app-shell";
 import { logoutAction } from "@/app/home/actions";
-import { getLapsoProgress } from "@/lib/route-lapsos";
+import { getLapsoProgress, getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { MapMarker, RouteLapsoSummary } from "../types";
@@ -118,6 +118,8 @@ export default async function ZonaMapaPage({
 
   const profileUserId = profile.user_id;
   const lapsoUserIdForRoute = routeRow.assigned_user ?? profile.user_id;
+  const nowIso = new Date().toISOString();
+  const currentWeekStartIso = getRouteLapsoWeekStartAt();
 
   if (
     profile?.role === "rutero" &&
@@ -137,6 +139,8 @@ export default async function ZonaMapaPage({
     .eq("route_id", routeIdNumber)
     .eq("user_id", lapsoUserIdForRoute)
     .eq("status", "en_curso")
+    .gte("start_at", currentWeekStartIso)
+    .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1)
     .maybeSingle();

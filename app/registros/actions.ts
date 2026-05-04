@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAllowedAppRole, type AllowedAppRole } from "@/lib/auth/roles";
+import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   DUPLICATE_REGISTRO_ERROR,
@@ -184,6 +185,8 @@ async function resolveWritableRouteContext(
   routeId: number,
 ): Promise<{ context: WritableRouteContext | null; error: string | null }> {
   const { supabase, profileUserId, role } = auth;
+  const nowIso = new Date().toISOString();
+  const currentWeekStartIso = getRouteLapsoWeekStartAt();
 
   const { data: routeRow } = await supabase
     .from("route")
@@ -204,6 +207,8 @@ async function resolveWritableRouteContext(
     .select("lapso_id, user_id")
     .eq("route_id", routeId)
     .eq("status", "en_curso")
+    .gte("start_at", currentWeekStartIso)
+    .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1);
 
@@ -221,6 +226,8 @@ async function resolveWritableRouteContext(
       .select("lapso_id, user_id")
       .eq("route_id", routeId)
       .eq("status", "en_curso")
+      .gte("start_at", currentWeekStartIso)
+      .gt("end_at", nowIso)
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -677,6 +684,8 @@ export async function updateRegistroAction(
     .eq("route_id", establishment.route_id)
     .eq("user_id", recordRow.user_id)
     .eq("status", "en_curso")
+    .gte("start_at", getRouteLapsoWeekStartAt())
+    .gt("end_at", new Date().toISOString())
     .order("start_at", { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import type {
   DetailSource,
   EstablishmentDetailData,
@@ -74,6 +75,8 @@ export async function getEstablishmentDetailData({
     .eq("route_id", routeId)
     .eq("user_id", lapsoUserId)
     .eq("status", "en_curso")
+    .gte("start_at", getRouteLapsoWeekStartAt())
+    .gt("end_at", new Date().toISOString())
     .order("start_at", { ascending: false })
     .limit(1)
     .maybeSingle();

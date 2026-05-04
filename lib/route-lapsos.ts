@@ -1,3 +1,8 @@
+import {
+  getCurrentCostaRicaMondayStartIso,
+  getNextCostaRicaMondayStartIso,
+} from "./route-lapsos.mjs";
+
 export type RouteLapsoStatus = "en_curso" | "completado" | "incompleto" | "vencido";
 
 export type ResolvedLapso = {
@@ -21,6 +26,8 @@ export async function resolveActiveLapso(
   },
 ): Promise<ResolvedLapso | null> {
   const { routeId, assignedUser, profileUserId, role } = params;
+  const nowIso = new Date().toISOString();
+  const currentWeekStartIso = getCurrentCostaRicaMondayStartIso();
 
   if (role === "rutero") {
     const { data } = await supabase
@@ -29,6 +36,8 @@ export async function resolveActiveLapso(
       .eq("route_id", routeId)
       .eq("user_id", profileUserId)
       .eq("status", "en_curso")
+      .gte("start_at", currentWeekStartIso)
+      .gt("end_at", nowIso)
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -44,6 +53,8 @@ export async function resolveActiveLapso(
     .select("lapso_id, user_id")
     .eq("route_id", routeId)
     .eq("status", "en_curso")
+    .gte("start_at", currentWeekStartIso)
+    .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1);
 
@@ -60,6 +71,8 @@ export async function resolveActiveLapso(
       .select("lapso_id, user_id")
       .eq("route_id", routeId)
       .eq("status", "en_curso")
+      .gte("start_at", currentWeekStartIso)
+      .gt("end_at", nowIso)
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -79,6 +92,32 @@ export function getDurationDaysFromVisitPeriod(visitPeriod: string | null | unde
   const parsed = Number(match[0]);
   if (!Number.isFinite(parsed) || parsed < 1) return 7;
   return Math.floor(parsed);
+}
+
+export function getRouteLapsoEndAt(nowDate: Date = new Date()) {
+  return getNextCostaRicaMondayStartIso(nowDate);
+}
+
+export function getRouteLapsoWeekStartAt(nowDate: Date = new Date()) {
+  return getCurrentCostaRicaMondayStartIso(nowDate);
+}
+
+export async function closeExpiredRouteLapsos(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  nowDate: Date = new Date(),
+) {
+  const nowIso = nowDate.toISOString();
+  const currentWeekStartIso = getCurrentCostaRicaMondayStartIso(nowDate);
+
+  await supabase
+    .from("route_lapso")
+    .update({
+      status: "vencido",
+      closed_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("status", "en_curso")
+    .or(`end_at.lte.${nowIso},start_at.lt.${currentWeekStartIso}`);
 }
 
 export function getLapsoProgress(

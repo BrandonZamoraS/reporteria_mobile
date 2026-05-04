@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildEvidenceStampLines } from "./evidence-stamp.mjs";
+import {
+  buildEvidenceStampLines,
+  chooseEvidenceCompressionAttempt,
+} from "./evidence-stamp.mjs";
 
 test("buildEvidenceStampLines includes required and suggested fields", () => {
   const lines = buildEvidenceStampLines({
@@ -36,4 +39,40 @@ test("buildEvidenceStampLines uses safe fallbacks when optional values are missi
   assert.equal(lines[1], "Usuario");
   assert.equal(lines[2], "invalid");
   assert.equal(lines[3], "GPS: 19.432600, -99.133200");
+});
+
+test("chooseEvidenceCompressionAttempt accepts files at or below the target", () => {
+  assert.deepEqual(
+    chooseEvidenceCompressionAttempt({
+      size: 900_000,
+      targetBytes: 900_000,
+      quality: 0.82,
+      minQuality: 0.5,
+    }),
+    { status: "ok" },
+  );
+});
+
+test("chooseEvidenceCompressionAttempt reduces quality while it can", () => {
+  assert.deepEqual(
+    chooseEvidenceCompressionAttempt({
+      size: 1_100_000,
+      targetBytes: 900_000,
+      quality: 0.82,
+      minQuality: 0.5,
+    }),
+    { status: "retry", quality: 0.74 },
+  );
+});
+
+test("chooseEvidenceCompressionAttempt rejects oversized files after minimum quality", () => {
+  assert.deepEqual(
+    chooseEvidenceCompressionAttempt({
+      size: 1_100_000,
+      targetBytes: 900_000,
+      quality: 0.5,
+      minQuality: 0.5,
+    }),
+    { status: "too-large" },
+  );
 });
