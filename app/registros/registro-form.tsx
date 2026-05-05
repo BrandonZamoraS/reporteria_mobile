@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -173,8 +172,10 @@ export default function RegistroForm({
   const [newEvidenceFiles, setNewEvidenceFiles] = useState<File[]>([]);
   const [newEvidenceGeos, setNewEvidenceGeos] = useState<EvidenceGeoInfo[]>([]);
   const [newEvidencePreviewUrls, setNewEvidencePreviewUrls] = useState<string[]>([]);
+  const [failedEvidenceUrls, setFailedEvidenceUrls] = useState<Set<string>>(() => new Set());
   const [clientError, setClientError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [geoPermissionState, setGeoPermissionState] = useState<PermissionState | "unknown">(
     "unknown",
   );
@@ -500,6 +501,7 @@ export default function RegistroForm({
     submitLockRef.current = true;
     setClientError(null);
     setServerError(null);
+    setUploadStatus(null);
     setIsSubmitting(true);
 
     try {
@@ -519,6 +521,7 @@ export default function RegistroForm({
 
         if (totalCount < 1 || totalCount > 6) {
             setClientError("Debes tener entre 1 y 6 evidencias en total.");
+            setUploadStatus(null);
             submitLockRef.current = false;
             setIsSubmitting(false);
             return;
@@ -530,6 +533,7 @@ export default function RegistroForm({
 
         if (result.error || !result.success || !result.recordId) {
             setServerError(result.error || "Error al guardar el registro.");
+            setUploadStatus(null);
             submitLockRef.current = false;
             setIsSubmitting(false);
             return;
@@ -540,8 +544,6 @@ export default function RegistroForm({
         // Step 2: Upload new images one by one
         let uploadErrors = 0;
         const totalFiles = newEvidenceFiles.length;
-        
-        // Show progress? We can't easily update a progress bar here without more state.
         
         for (let i = 0; i < totalFiles; i++) {
             const file = newEvidenceFiles[i];
@@ -554,8 +556,7 @@ export default function RegistroForm({
                 uploadFormData.append("geoJson", JSON.stringify(geo));
             }
             
-            // Just update client error to show progress (simple way)
-            setClientError(`Subiendo imagen ${i + 1} de ${totalFiles}...`);
+            setUploadStatus(`Subiendo imagen ${i + 1} de ${totalFiles}...`);
 
             try {
                 const response = await fetch("/api/registros/evidencias", {
@@ -578,6 +579,7 @@ export default function RegistroForm({
         }
 
         if (uploadErrors > 0) {
+            setUploadStatus(null);
             setClientError(`El registro se creó, pero fallaron ${uploadErrors} imágenes. Intenta editarlo.`);
             // Redirect anyway? Or stay? 
             // The record exists now. If we stay, we might create duplicates if they click submit again.
@@ -601,6 +603,7 @@ export default function RegistroForm({
 
     } catch (err: unknown) {
         console.error(err);
+        setUploadStatus(null);
         setServerError(err instanceof Error ? err.message : "Error inesperado.");
         submitLockRef.current = false;
         setIsSubmitting(false);
@@ -703,18 +706,27 @@ export default function RegistroForm({
                 evidencePreviewUrls.length < TOTAL_EVIDENCE_SLOTS;
 
               if (previewUrl) {
+                const hasLoadFailed = failedEvidenceUrls.has(previewUrl);
+
                 return (
                   <div
                     key={`slot-preview-${index}`}
                     className="relative h-[88px] w-full overflow-hidden rounded-[12px] border border-[#B3B5B3] bg-white"
                   >
-                    <Image
-                      src={previewUrl}
-                      alt={`Evidencia ${index + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 30vw, 120px"
-                      className="object-cover"
-                    />
+                    {hasLoadFailed ? (
+                      <div className="flex h-full w-full items-center justify-center px-2 text-center text-[12px] leading-tight text-[#405C62]">
+                        No se pudo cargar
+                      </div>
+                    ) : (
+                      <img
+                        src={previewUrl}
+                        alt={`Evidencia ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setFailedEvidenceUrls((prev) => new Set(prev).add(previewUrl))
+                        }
+                      />
+                    )}
                     {isNewEvidence && (
                       <button
                         type="button"
@@ -780,6 +792,9 @@ export default function RegistroForm({
 
           {clientError ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">{clientError}</p>
+          ) : null}
+          {uploadStatus ? (
+            <p className="m-0 text-[14px] leading-none font-normal text-[#405C62]">{uploadStatus}</p>
           ) : null}
           {selectionLockMessage ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">
