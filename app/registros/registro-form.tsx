@@ -176,10 +176,12 @@ export default function RegistroForm({
   const [clientError, setClientError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [geoPermissionState, setGeoPermissionState] = useState<PermissionState | "unknown">(
     "unknown",
   );
   const evidenceInputRef = useRef<HTMLInputElement | null>(null);
+  const submitLockRef = useRef(false);
 
   const routeById = useMemo(
     () => new Map(routeOptions.map((route) => [route.id, route.name])),
@@ -300,6 +302,7 @@ export default function RegistroForm({
     : isEstablishmentFullyRegistered
       ? "Todos los productos de esta ubicacion ya fueron registrados en el lapso activo."
       : null;
+  const showSelectionLockMessage = !isSubmitting && selectionLockMessage;
 
   const evidencePreviewUrls = useMemo(
     () => [...existingEvidenceUrls, ...newEvidencePreviewUrls].slice(0, TOTAL_EVIDENCE_SLOTS),
@@ -489,10 +492,6 @@ export default function RegistroForm({
 
     evidenceInputRef.current?.click();
   }
-
-  // We need a local loading state since we are bypassing the form action for the multi-step process
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const submitLockRef = useRef(false);
 
   async function onFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -796,7 +795,7 @@ export default function RegistroForm({
           {uploadStatus ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#405C62]">{uploadStatus}</p>
           ) : null}
-          {selectionLockMessage ? (
+          {showSelectionLockMessage ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">
               {selectionLockMessage}
             </p>
