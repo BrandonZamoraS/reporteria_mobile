@@ -7,7 +7,6 @@ import MobileSelectField, {
   type MobileSelectOption,
 } from "@/app/_components/mobile-select-field";
 import { createRegistroAction, updateRegistroAction } from "./actions";
-import { DUPLICATE_REGISTRO_ERROR } from "./duplicate-check-record.mjs";
 import { buildEvidenceStampLines, stampEvidenceFile } from "./evidence-stamp.mjs";
 import { isRegistroSubmitDisabled } from "./registro-form-state.mjs";
 import type {
@@ -49,6 +48,8 @@ const INITIAL_ACTION_STATE: RegistroActionState = {
 };
 
 const TOTAL_EVIDENCE_SLOTS = 6;
+const HIDDEN_DUPLICATE_MESSAGE =
+  "Ya existe un registro para este producto en este establecimiento durante el lapso activo. Puedes editar el registro existente.";
 
 function toNullableNumber(value: string) {
   const parsed = Number(value);
@@ -298,11 +299,10 @@ export default function RegistroForm({
       );
     })();
   const selectionLockMessage = hasLockedSelection
-    ? DUPLICATE_REGISTRO_ERROR
+    ? null
     : isEstablishmentFullyRegistered
       ? "Todos los productos de esta ubicacion ya fueron registrados en el lapso activo."
       : null;
-  const showSelectionLockMessage = !isSubmitting && selectionLockMessage;
 
   const evidencePreviewUrls = useMemo(
     () => [...existingEvidenceUrls, ...newEvidencePreviewUrls].slice(0, TOTAL_EVIDENCE_SLOTS),
@@ -531,7 +531,11 @@ export default function RegistroForm({
         const result = await action(INITIAL_ACTION_STATE, formData);
 
         if (result.error || !result.success || !result.recordId) {
-            setServerError(result.error || "Error al guardar el registro.");
+            setServerError(
+              result.error === HIDDEN_DUPLICATE_MESSAGE
+                ? null
+                : result.error || "Error al guardar el registro.",
+            );
             setUploadStatus(null);
             submitLockRef.current = false;
             setIsSubmitting(false);
@@ -543,9 +547,7 @@ export default function RegistroForm({
         // Step 2: Upload new images one by one
         let uploadErrors = 0;
         const totalFiles = newEvidenceFiles.length;
-        const uploadStartIndex = result.resumeUploadFromIndex ?? 0;
-        
-        for (let i = uploadStartIndex; i < totalFiles; i++) {
+        for (let i = 0; i < totalFiles; i++) {
             const file = newEvidenceFiles[i];
             const geo = newEvidenceGeos[i];
             
@@ -796,7 +798,7 @@ export default function RegistroForm({
           {uploadStatus ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#405C62]">{uploadStatus}</p>
           ) : null}
-          {showSelectionLockMessage ? (
+          {!isSubmitting && selectionLockMessage ? (
             <p className="m-0 text-[14px] leading-none font-normal text-[#A43E2A]">
               {selectionLockMessage}
             </p>

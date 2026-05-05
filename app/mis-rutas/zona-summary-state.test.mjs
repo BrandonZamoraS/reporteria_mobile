@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getEstablishmentRouteStatus } from "./zona-summary-state.mjs";
+import {
+  buildEstablishmentProgressById,
+  getEstablishmentRouteStatus,
+} from "./zona-summary-state.mjs";
 
 test("classifies an establishment as pending when it still has products left to register", () => {
   assert.equal(
@@ -44,5 +47,34 @@ test("classifies an establishment as completed when it has no active products le
       hasRecordedProducts: true,
     }),
     "completed",
+  );
+});
+
+test("uses the same product coverage inputs that route-lapso close uses for pendientes", () => {
+  const progressById = buildEstablishmentProgressById({
+    establishmentIds: [10, 11],
+    productRelations: [
+      { establishment_id: 10, product_id: 1 },
+      { establishment_id: 11, product_id: 2 },
+    ],
+    activeProductIds: [1, 2],
+    records: [{ establishment_id: 10, product_id: 1 }],
+  });
+
+  assert.equal(
+    getEstablishmentRouteStatus({
+      totalProducts: progressById.get(10).totalProducts,
+      completedProducts: progressById.get(10).completedProducts,
+      hasRecordedProducts: true,
+    }),
+    "completed",
+  );
+  assert.equal(
+    getEstablishmentRouteStatus({
+      totalProducts: progressById.get(11).totalProducts,
+      completedProducts: progressById.get(11).completedProducts,
+      hasRecordedProducts: false,
+    }),
+    "pending",
   );
 });

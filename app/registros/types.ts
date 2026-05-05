@@ -8,8 +8,6 @@ export type RegistroActionState = {
   error: string | null;
   success: boolean;
   recordId: number | null;
-  resumedExistingRecord?: boolean;
-  resumeUploadFromIndex?: number;
 };
 
 export type EvidenceGeoInfo = {

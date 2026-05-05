@@ -4,13 +4,13 @@ import { test } from "node:test";
 
 const source = readFileSync(new URL("./actions.ts", import.meta.url), "utf8");
 
-test("manual create resumes a partial duplicate instead of returning duplicate error", () => {
-  assert.match(source, /function\s+getRecoverableExistingRecord/);
-  assert.match(source, /resumedExistingRecord:\s*true/);
-  assert.match(source, /resumeUploadFromIndex:\s*recoverableExistingRecord\.evidenceCount/);
+test("manual create treats a partial existing record as a duplicate instead of resuming it", () => {
+  assert.doesNotMatch(source, /function\s+getRecoverableExistingRecord/);
+  assert.doesNotMatch(source, /resumedExistingRecord:\s*true/);
+  assert.doesNotMatch(source, /resumeUploadFromIndex/);
 });
 
-test("manual create keeps duplicate error when the existing record has complete evidence", () => {
-  assert.match(source, /recoverableExistingRecord\s*===\s*null/);
+test("manual create checks any existing lapso record before inserting", () => {
+  assert.match(source, /findExistingLapsoRecordId/);
   assert.match(source, /DUPLICATE_REGISTRO_ERROR/);
 });

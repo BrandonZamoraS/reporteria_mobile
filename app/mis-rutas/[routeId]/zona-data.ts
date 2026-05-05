@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSqlContainsPattern, sanitizeListSearchQuery } from "@/lib/list-search.mjs";
-import {
-  buildEstablishmentProgressById,
-  getEstablishmentRouteStatus,
-} from "@/app/mis-rutas/zona-summary-state.mjs";
+import { getLapsoPendingEstablishmentIds } from "@/lib/route-lapsos.mjs";
 import type { ZonaListItem, ZonaSource } from "./zona-types";
 
 const ESTABLISHMENT_SCAN_BATCH = 60;
@@ -58,7 +55,7 @@ async function buildSummariesForBatch({
     number,
     { timeDate: string }
   >();
-  let progressById = new Map<number, { totalProducts: number; completedProducts: number }>();
+  let pendingEstablishmentIds = new Set<number>();
 
   if (establishmentIds.length > 0) {
     const { data: productRelations } = await supabase
@@ -89,15 +86,14 @@ async function buildSummariesForBatch({
           time_date: string;
         }[] };
 
-    progressById = buildEstablishmentProgressById({
-      establishmentIds,
-      productRelations: productRelations ?? [],
-      activeProductIds: (activeProducts ?? []).map((item) => item.product_id),
-      records: (records ?? []).map((record) => ({
-        establishment_id: record.establishment_id,
-        product_id: record.product_id,
-      })),
-    });
+    pendingEstablishmentIds = new Set(
+      getLapsoPendingEstablishmentIds({
+        establishmentIds,
+        productRelations: productRelations ?? [],
+        activeProductIds: (activeProducts ?? []).map((item) => item.product_id),
+        records: records ?? [],
+      }),
+    );
 
     for (const record of records ?? []) {
       if (!latestRecordByEstablishment.has(record.establishment_id)) {
@@ -111,14 +107,7 @@ async function buildSummariesForBatch({
   const items: ZonaListItem[] = [];
 
   for (const establishment of establishments) {
-    const progress = progressById.get(establishment.establishment_id);
-    const totalProducts = progress?.totalProducts ?? 0;
-    const completedProducts = progress?.completedProducts ?? 0;
-    const establishmentStatus = getEstablishmentRouteStatus({
-      totalProducts,
-      completedProducts,
-      hasRecordedProducts: latestRecordByEstablishment.has(establishment.establishment_id),
-    });
+    const isPending = pendingEstablishmentIds.has(establishment.establishment_id);
 
     if (source === "pendientes") {
       if (!lapsoId) {
@@ -130,7 +119,7 @@ async function buildSummariesForBatch({
         continue;
       }
 
-      if (establishmentStatus === "completed") {
+      if (!isPending) {
         continue;
       }
 
@@ -142,7 +131,7 @@ async function buildSummariesForBatch({
       continue;
     }
 
-    if (!lapsoId || establishmentStatus !== "completed") {
+    if (!lapsoId || isPending) {
       continue;
     }
 

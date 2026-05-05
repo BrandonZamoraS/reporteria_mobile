@@ -1,8 +1,7 @@
 import {
-  getCompleteRegisteredPairs,
   getCurrentCostaRicaMondayStartIso,
   getNextCostaRicaMondayStartIso,
-  isRouteLapsoFullyRegistered,
+  hasRouteLapsoPendingItems,
 } from "./route-lapsos.mjs";
 
 export type RouteLapsoStatus = "en_curso" | "completado" | "incompleto" | "vencido";
@@ -147,18 +146,6 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     return { closed: false, routeId: null, establishmentId: null };
   }
 
-  const expectedEvidenceCount = Number(record.evidence_num ?? 0);
-  if (expectedEvidenceCount > 0) {
-    const { count: evidenceCount } = await supabase
-      .from("evidence")
-      .select("evidence_id", { count: "exact", head: true })
-      .eq("record_id", recordId);
-
-    if ((evidenceCount ?? 0) < expectedEvidenceCount) {
-      return { closed: false, routeId: null, establishmentId: record.establishment_id };
-    }
-  }
-
   const { data: lapso } = await supabase
     .from("route_lapso")
     .select("lapso_id, route_id, user_id, status")
@@ -199,66 +186,33 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     ),
   ];
 
-  if (productIds.length === 0) {
-    return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
-  }
+  const { data: products } = productIds.length === 0
+    ? { data: [] as { product_id: number }[] }
+    : await supabase
+        .from("product")
+        .select("product_id")
+        .in("product_id", productIds)
+        .eq("is_active", true);
 
-  const { data: products } = await supabase
-    .from("product")
-    .select("product_id")
-    .in("product_id", productIds)
-    .eq("is_active", true);
-
-  const activeProductIds = new Set(
+  const activeProductIds =
     (products ?? [])
       .map((row) => row.product_id)
-      .filter((value): value is number => Number.isFinite(value)),
-  );
-
-  const requiredPairs = (relations ?? [])
-    .filter((row) => activeProductIds.has(row.product_id))
-    .map((row) => ({
-      establishmentId: row.establishment_id,
-      productId: row.product_id,
-    }));
+      .filter((value): value is number => Number.isFinite(value));
 
   const { data: records } = await supabase
     .from("check_record")
-    .select("record_id, establishment_id, product_id, evidence_num")
+    .select("establishment_id, product_id")
     .eq("lapso_id", record.lapso_id)
     .eq("user_id", record.user_id);
 
-  const recordIds = (records ?? [])
-    .map((row) => row.record_id)
-    .filter((value): value is number => Number.isFinite(value));
-  const evidenceCountByRecordId = new Map<number, number>();
-
-  if (recordIds.length > 0) {
-    const { data: evidenceRows } = await supabase
-      .from("evidence")
-      .select("record_id")
-      .in("record_id", recordIds);
-
-    for (const evidence of evidenceRows ?? []) {
-      const evidenceRecordId = Number(evidence.record_id);
-      if (!Number.isFinite(evidenceRecordId)) continue;
-      evidenceCountByRecordId.set(
-        evidenceRecordId,
-        (evidenceCountByRecordId.get(evidenceRecordId) ?? 0) + 1,
-      );
-    }
-  }
-
-  const registeredPairs = getCompleteRegisteredPairs(
-    (records ?? []).map((row) => ({
-      establishmentId: row.establishment_id,
-      productId: row.product_id,
-      evidenceNum: row.evidence_num,
-      evidenceCount: evidenceCountByRecordId.get(row.record_id) ?? 0,
-    })),
-  );
-
-  if (!isRouteLapsoFullyRegistered({ requiredPairs, registeredPairs })) {
+  if (
+    hasRouteLapsoPendingItems({
+      establishmentIds,
+      productRelations: relations ?? [],
+      activeProductIds,
+      records: records ?? [],
+    })
+  ) {
     return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
   }
 
