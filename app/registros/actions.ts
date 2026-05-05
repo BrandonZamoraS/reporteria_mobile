@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAllowedAppRole, type AllowedAppRole } from "@/lib/auth/roles";
-import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
+import {
+  closeRouteLapsoIfFullyRegisteredAfterRecord,
+  getRouteLapsoWeekStartAt,
+} from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   DUPLICATE_REGISTRO_ERROR,
@@ -388,6 +391,7 @@ async function deleteEvidenceRows(
 
 function revalidateRegistroRelatedPaths(routeId: number, establishmentId: number) {
   revalidatePath("/registros");
+  revalidatePath("/mis-rutas");
   revalidatePath(`/mis-rutas/${routeId}`);
   revalidatePath(`/mis-rutas/${routeId}/pendientes`);
   revalidatePath(`/mis-rutas/${routeId}/completadas`);
@@ -451,6 +455,11 @@ export async function uploadSingleEvidenceAction(
     if (insertError) {
       await auth.supabase.storage.from(EVIDENCE_BUCKET).remove([objectPath]);
       return { error: "Error guardando referencia", success: false };
+    }
+
+    const closeResult = await closeRouteLapsoIfFullyRegisteredAfterRecord(auth.supabase, recordId);
+    if (closeResult.closed && closeResult.routeId && closeResult.establishmentId) {
+      revalidateRegistroRelatedPaths(closeResult.routeId, closeResult.establishmentId);
     }
 
     return { error: null, success: true };
@@ -577,6 +586,8 @@ export async function createRegistroAction(
 
         return { ...INITIAL_REGISTRO_STATE, error: uploadResult.error };
     }
+
+    await closeRouteLapsoIfFullyRegisteredAfterRecord(auth.supabase, insertedRecord.record_id);
   }
 
   revalidateRegistroRelatedPaths(routeId, establishmentId);

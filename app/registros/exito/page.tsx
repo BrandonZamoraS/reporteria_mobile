@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import AppShell from "@/app/_components/app-shell";
 import { logoutAction } from "@/app/home/actions";
 import { isAllowedAppRole } from "@/lib/auth/roles";
+import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const PROFILE_PHOTO_BUCKET = "profile-photos";
@@ -68,6 +69,26 @@ export default async function RegistroSuccessPage({
     profilePhotoUrl = data?.signedUrl ?? null;
   }
 
+  let hasActiveRouteLapso = false;
+  if (parsedRouteId) {
+    const nowIso = new Date().toISOString();
+    const lapsoQuery = supabase
+      .from("route_lapso")
+      .select("lapso_id")
+      .eq("route_id", parsedRouteId)
+      .eq("status", "en_curso")
+      .gte("start_at", getRouteLapsoWeekStartAt())
+      .gt("end_at", nowIso)
+      .limit(1);
+
+    const { data: activeLapso } =
+      profile.role === "rutero"
+        ? await lapsoQuery.eq("user_id", profile.user_id).maybeSingle()
+        : await lapsoQuery.maybeSingle();
+
+    hasActiveRouteLapso = Boolean(activeLapso?.lapso_id);
+  }
+
   return (
     <AppShell
       title="Registro guardado"
@@ -91,7 +112,18 @@ export default async function RegistroSuccessPage({
           ) : null}
         </div>
 
-        {parsedRouteId && parsedEstablishmentId && source ? (
+        {parsedRouteId && !hasActiveRouteLapso ? (
+          <div className="rounded-[12px] border border-[#B3B5B3] bg-white p-4 text-center">
+            <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">
+              Ruta completada
+            </p>
+            <p className="m-0 mt-2 text-[14px] leading-none font-normal text-[#5A7984]">
+              Ya no hay un lapso activo para esta ruta.
+            </p>
+          </div>
+        ) : null}
+
+        {parsedRouteId && parsedEstablishmentId && source && hasActiveRouteLapso ? (
           <Link
             href={`/mis-rutas/${parsedRouteId}/establecimientos/${parsedEstablishmentId}?from=${source}`}
             className="flex h-11 w-full items-center justify-center rounded-[12px] bg-[#0D3233] text-[16px] leading-none font-normal text-white"

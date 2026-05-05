@@ -1,6 +1,7 @@
 import {
   getCurrentCostaRicaMondayStartIso,
   getNextCostaRicaMondayStartIso,
+  isRouteLapsoFullyRegistered,
 } from "./route-lapsos.mjs";
 
 export type RouteLapsoStatus = "en_curso" | "completado" | "incompleto" | "vencido";
@@ -8,6 +9,12 @@ export type RouteLapsoStatus = "en_curso" | "completado" | "incompleto" | "venci
 export type ResolvedLapso = {
   lapsoId: number;
   lapsoUserId: number;
+};
+
+export type CloseRouteLapsoResult = {
+  closed: boolean;
+  routeId: number | null;
+  establishmentId: number | null;
 };
 
 /**
@@ -118,6 +125,133 @@ export async function closeExpiredRouteLapsos(
     })
     .eq("status", "en_curso")
     .or(`end_at.lte.${nowIso},start_at.lt.${currentWeekStartIso}`);
+}
+
+export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  recordId: number,
+): Promise<CloseRouteLapsoResult> {
+  const { data: record } = await supabase
+    .from("check_record")
+    .select("record_id, lapso_id, user_id, establishment_id, evidence_num")
+    .eq("record_id", recordId)
+    .maybeSingle();
+
+  if (
+    !record ||
+    !Number.isFinite(record.lapso_id) ||
+    !Number.isFinite(record.user_id) ||
+    !Number.isFinite(record.establishment_id)
+  ) {
+    return { closed: false, routeId: null, establishmentId: null };
+  }
+
+  const expectedEvidenceCount = Number(record.evidence_num ?? 0);
+  if (expectedEvidenceCount > 0) {
+    const { count: evidenceCount } = await supabase
+      .from("evidence")
+      .select("evidence_id", { count: "exact", head: true })
+      .eq("record_id", recordId);
+
+    if ((evidenceCount ?? 0) < expectedEvidenceCount) {
+      return { closed: false, routeId: null, establishmentId: record.establishment_id };
+    }
+  }
+
+  const { data: lapso } = await supabase
+    .from("route_lapso")
+    .select("lapso_id, route_id, user_id, status")
+    .eq("lapso_id", record.lapso_id)
+    .eq("user_id", record.user_id)
+    .eq("status", "en_curso")
+    .maybeSingle();
+
+  if (!lapso || !Number.isFinite(lapso.route_id)) {
+    return { closed: false, routeId: null, establishmentId: record.establishment_id };
+  }
+
+  const { data: establishments } = await supabase
+    .from("establishment")
+    .select("establishment_id")
+    .eq("route_id", lapso.route_id)
+    .eq("is_active", true);
+
+  const establishmentIds = (establishments ?? [])
+    .map((row) => row.establishment_id)
+    .filter((value): value is number => Number.isFinite(value));
+
+  if (establishmentIds.length === 0) {
+    return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
+  }
+
+  const { data: relations } = await supabase
+    .from("products_establishment")
+    .select("establishment_id, product_id")
+    .in("establishment_id", establishmentIds)
+    .eq("is_active", true);
+
+  const productIds = [
+    ...new Set(
+      (relations ?? [])
+        .map((row) => row.product_id)
+        .filter((value): value is number => Number.isFinite(value)),
+    ),
+  ];
+
+  if (productIds.length === 0) {
+    return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
+  }
+
+  const { data: products } = await supabase
+    .from("product")
+    .select("product_id")
+    .in("product_id", productIds)
+    .eq("is_active", true);
+
+  const activeProductIds = new Set(
+    (products ?? [])
+      .map((row) => row.product_id)
+      .filter((value): value is number => Number.isFinite(value)),
+  );
+
+  const requiredPairs = (relations ?? [])
+    .filter((row) => activeProductIds.has(row.product_id))
+    .map((row) => ({
+      establishmentId: row.establishment_id,
+      productId: row.product_id,
+    }));
+
+  const { data: records } = await supabase
+    .from("check_record")
+    .select("establishment_id, product_id")
+    .eq("lapso_id", record.lapso_id)
+    .eq("user_id", record.user_id);
+
+  const registeredPairs = (records ?? []).map((row) => ({
+    establishmentId: row.establishment_id,
+    productId: row.product_id,
+  }));
+
+  if (!isRouteLapsoFullyRegistered({ requiredPairs, registeredPairs })) {
+    return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("route_lapso")
+    .update({
+      status: "completado",
+      closed_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("lapso_id", record.lapso_id)
+    .eq("status", "en_curso");
+
+  return {
+    closed: !error,
+    routeId: lapso.route_id,
+    establishmentId: record.establishment_id,
+  };
 }
 
 export function getLapsoProgress(

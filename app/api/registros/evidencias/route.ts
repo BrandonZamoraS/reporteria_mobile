@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAllowedAppRole } from "@/lib/auth/roles";
+import { closeRouteLapsoIfFullyRegisteredAfterRecord } from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { EvidenceGeoInfo } from "@/app/registros/types";
 
@@ -116,6 +118,17 @@ export async function POST(request: Request) {
   if (insertError) {
     await supabase.storage.from(EVIDENCE_BUCKET).remove([objectPath]);
     return NextResponse.json({ error: "Error guardando referencia" }, { status: 500 });
+  }
+
+  const closeResult = await closeRouteLapsoIfFullyRegisteredAfterRecord(supabase, recordId);
+  if (closeResult.closed && closeResult.routeId && closeResult.establishmentId) {
+    revalidatePath("/mis-rutas");
+    revalidatePath(`/mis-rutas/${closeResult.routeId}`);
+    revalidatePath(`/mis-rutas/${closeResult.routeId}/pendientes`);
+    revalidatePath(`/mis-rutas/${closeResult.routeId}/completadas`);
+    revalidatePath(
+      `/mis-rutas/${closeResult.routeId}/establecimientos/${closeResult.establishmentId}`,
+    );
   }
 
   return NextResponse.json({ success: true });
