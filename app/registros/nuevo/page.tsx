@@ -4,6 +4,7 @@ import AppShell from "@/app/_components/app-shell";
 import { logoutAction } from "@/app/home/actions";
 import { isAllowedAppRole } from "@/lib/auth/roles";
 import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
+import { getCompleteRegisteredPairs } from "@/lib/route-lapsos.mjs";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import RegistroForm from "../registro-form";
 import type {
@@ -207,20 +208,57 @@ export default async function RegistroNuevoPage({
     );
     const { data: activeRecordRows } = await supabase
       .from("check_record")
-      .select("lapso_id, establishment_id, product_id")
+      .select("record_id, lapso_id, establishment_id, product_id, evidence_num")
       .in("lapso_id", activeLapsoIds);
 
-    const seenRelations = new Set<string>();
-    activeRegistroRelations = (activeRecordRows ?? []).flatMap((record) => {
-      const routeId = establishmentRouteIdById.get(record.establishment_id);
-      const expectedLapsoId =
-        typeof routeId === "number" ? activeLapsoIdByRoute.get(routeId) : undefined;
+    const activeRecordIds = (activeRecordRows ?? [])
+      .map((record) => record.record_id)
+      .filter((value): value is number => Number.isFinite(value));
+    const evidenceCountByRecordId = new Map<number, number>();
 
-      if (expectedLapsoId !== record.lapso_id) {
-        return [];
+    if (activeRecordIds.length > 0) {
+      const { data: activeEvidenceRows } = await supabase
+        .from("evidence")
+        .select("record_id")
+        .in("record_id", activeRecordIds);
+
+      for (const evidence of activeEvidenceRows ?? []) {
+        const evidenceRecordId = Number(evidence.record_id);
+        if (!Number.isFinite(evidenceRecordId)) continue;
+        evidenceCountByRecordId.set(
+          evidenceRecordId,
+          (evidenceCountByRecordId.get(evidenceRecordId) ?? 0) + 1,
+        );
       }
+    }
 
-      const relationKey = `${record.establishment_id}:${record.product_id}`;
+    const seenRelations = new Set<string>();
+    const completeRecordPairs = getCompleteRegisteredPairs(
+      (activeRecordRows ?? []).flatMap((record) => {
+        const routeId = establishmentRouteIdById.get(record.establishment_id);
+        const expectedLapsoId =
+          typeof routeId === "number" ? activeLapsoIdByRoute.get(routeId) : undefined;
+
+        if (expectedLapsoId !== record.lapso_id) {
+          return [];
+        }
+
+        return [
+          {
+            establishmentId: record.establishment_id,
+            productId: record.product_id,
+            evidenceNum: record.evidence_num,
+            evidenceCount: evidenceCountByRecordId.get(record.record_id) ?? 0,
+          },
+        ];
+      }),
+    );
+
+    activeRegistroRelations = completeRecordPairs.flatMap((record) => {
+      const routeId = establishmentRouteIdById.get(record.establishmentId);
+      if (typeof routeId !== "number") return [];
+
+      const relationKey = `${record.establishmentId}:${record.productId}`;
       if (seenRelations.has(relationKey)) {
         return [];
       }
@@ -228,8 +266,8 @@ export default async function RegistroNuevoPage({
       seenRelations.add(relationKey);
       return [
         {
-          establishmentId: record.establishment_id,
-          productId: record.product_id,
+          establishmentId: record.establishmentId,
+          productId: record.productId,
         },
       ];
     });

@@ -543,8 +543,9 @@ export default function RegistroForm({
         // Step 2: Upload new images one by one
         let uploadErrors = 0;
         const totalFiles = newEvidenceFiles.length;
+        const uploadStartIndex = result.resumeUploadFromIndex ?? 0;
         
-        for (let i = 0; i < totalFiles; i++) {
+        for (let i = uploadStartIndex; i < totalFiles; i++) {
             const file = newEvidenceFiles[i];
             const geo = newEvidenceGeos[i];
             

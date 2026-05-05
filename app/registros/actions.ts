@@ -301,6 +301,42 @@ async function findExistingLapsoRecordId(
   return existingRecord?.record_id ?? null;
 }
 
+async function getRecoverableExistingRecord(params: {
+  auth: AuthContext;
+  lapsoId: number;
+  establishmentId: number;
+  productId: number;
+}) {
+  const { auth, lapsoId, establishmentId, productId } = params;
+  const { data: existingRecord } = await auth.supabase
+    .from("check_record")
+    .select("record_id, evidence_num")
+    .eq("lapso_id", lapsoId)
+    .eq("establishment_id", establishmentId)
+    .eq("product_id", productId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!existingRecord?.record_id) return undefined;
+
+  const evidenceNum = Number(existingRecord.evidence_num ?? 0);
+  const { count } = await auth.supabase
+    .from("evidence")
+    .select("evidence_id", { count: "exact", head: true })
+    .eq("record_id", existingRecord.record_id);
+
+  const evidenceCount = count ?? 0;
+  if (evidenceNum > 0 && evidenceCount < evidenceNum) {
+    return {
+      recordId: existingRecord.record_id,
+      evidenceCount,
+      evidenceNum,
+    };
+  }
+
+  return null;
+}
+
 async function uploadEvidenceRows(params: {
   auth: AuthContext;
   recordId: number;
@@ -537,14 +573,37 @@ export async function createRegistroAction(
     return { ...INITIAL_REGISTRO_STATE, error: relationError };
   }
 
-  const existingRecordId = await findExistingLapsoRecordId(
-    auth,
-    routeContextResult.context.lapsoId,
-    establishmentId,
-    productId,
-  );
-  if (existingRecordId) {
-    return { ...INITIAL_REGISTRO_STATE, error: DUPLICATE_REGISTRO_ERROR };
+  if (manualEvidenceCount !== null) {
+    const recoverableExistingRecord = await getRecoverableExistingRecord({
+      auth,
+      lapsoId: routeContextResult.context.lapsoId,
+      establishmentId,
+      productId,
+    });
+
+    if (recoverableExistingRecord === null) {
+      return { ...INITIAL_REGISTRO_STATE, error: DUPLICATE_REGISTRO_ERROR };
+    }
+
+    if (recoverableExistingRecord) {
+      return {
+        error: null,
+        success: true,
+        recordId: recoverableExistingRecord.recordId,
+        resumedExistingRecord: true,
+        resumeUploadFromIndex: recoverableExistingRecord.evidenceCount,
+      };
+    }
+  } else {
+    const existingRecordId = await findExistingLapsoRecordId(
+      auth,
+      routeContextResult.context.lapsoId,
+      establishmentId,
+      productId,
+    );
+    if (existingRecordId) {
+      return { ...INITIAL_REGISTRO_STATE, error: DUPLICATE_REGISTRO_ERROR };
+    }
   }
 
   const { data: insertedRecord, error: insertError } = await auth.supabase
