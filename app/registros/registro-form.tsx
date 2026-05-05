@@ -491,11 +491,13 @@ export default function RegistroForm({
 
   // We need a local loading state since we are bypassing the form action for the multi-step process
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   async function onFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isSubmitting) return;
+    if (submitLockRef.current) return;
 
+    submitLockRef.current = true;
     setClientError(null);
     setServerError(null);
     setIsSubmitting(true);
@@ -517,6 +519,7 @@ export default function RegistroForm({
 
         if (totalCount < 1 || totalCount > 6) {
             setClientError("Debes tener entre 1 y 6 evidencias en total.");
+            submitLockRef.current = false;
             setIsSubmitting(false);
             return;
         }
@@ -527,6 +530,7 @@ export default function RegistroForm({
 
         if (result.error || !result.success || !result.recordId) {
             setServerError(result.error || "Error al guardar el registro.");
+            submitLockRef.current = false;
             setIsSubmitting(false);
             return;
         }
@@ -598,6 +602,7 @@ export default function RegistroForm({
     } catch (err: unknown) {
         console.error(err);
         setServerError(err instanceof Error ? err.message : "Error inesperado.");
+        submitLockRef.current = false;
         setIsSubmitting(false);
     }
   }
