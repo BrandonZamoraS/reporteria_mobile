@@ -6,6 +6,10 @@ import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MapMarker, RouteLapsoSummary } from "../types";
 import { isGoogleMapsReady } from "../map-runtime.mjs";
+import {
+  canStartCurrentWeekRoute,
+  getCurrentWeekLapsoLabel,
+} from "../route-lapso-week-state.mjs";
 import { startRouteAction } from "./actions";
 
 type ZonaMapaViewProps = {
@@ -66,7 +70,7 @@ export default function ZonaMapaView({
     startRouteAction,
     INITIAL_START_ROUTE_STATE,
   );
-  const hasActiveLapso = !!lapso;
+  const showStartRoute = canStartCurrentWeekRoute({ lapso, canStartRoute });
 
   const effectiveCenter = useMemo(() => markers[0] ?? DEFAULT_CENTER, [markers]);
   const hasGoogleMapsObject = typeof window !== "undefined" && !!window.google?.maps;
@@ -150,15 +154,9 @@ export default function ZonaMapaView({
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto pt-1">
       <div className="rounded-[12px] border border-[#B3B5B3] bg-white px-3 py-2">
         <p className="m-0 text-[16px] leading-none font-normal text-[#0D3233]">{routeName}</p>
-        {lapso ? (
-          <p className="m-0 mt-1 text-[14px] leading-none font-normal text-[#405C62]">
-            Lapso activo {lapso.dayLabel} ({lapso.progressPercent}%)
-          </p>
-        ) : (
-          <p className="m-0 mt-1 text-[14px] leading-none font-normal text-[#405C62]">
-            No hay lapso activo para esta ruta.
-          </p>
-        )}
+        <p className="m-0 mt-1 text-[14px] leading-none font-normal text-[#405C62]">
+          {getCurrentWeekLapsoLabel(lapso)}
+        </p>
       </div>
 
       {apiKey ? (
@@ -186,7 +184,7 @@ export default function ZonaMapaView({
       </div>
 
       <div className="flex w-full flex-col gap-4 pt-2 pb-2">
-        {!hasActiveLapso && canStartRoute ? (
+        {showStartRoute ? (
           <form action={startAction} className="flex w-full flex-col gap-2">
             <input type="hidden" name="routeId" value={routeId} />
             <button

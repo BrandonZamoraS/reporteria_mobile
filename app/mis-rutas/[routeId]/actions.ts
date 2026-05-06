@@ -9,6 +9,10 @@ import {
   getRouteLapsoEndAt,
   getRouteLapsoWeekStartAt,
 } from "@/lib/route-lapsos";
+import {
+  CURRENT_WEEK_ROUTE_LAPSO_STATUSES,
+  getStartRouteResultForExistingLapso,
+} from "../route-lapso-week-state.mjs";
 
 export type StartRouteState = {
   error: string | null;
@@ -73,21 +77,24 @@ export async function startRouteAction(
   }
 
   await closeExpiredRouteLapsos(supabase);
-  const nowIso = new Date().toISOString();
   const currentWeekStartIso = getRouteLapsoWeekStartAt();
 
-  const { data: activeLapso } = await supabase
+  const { data: currentWeekLapso } = await supabase
     .from("route_lapso")
-    .select("lapso_id")
+    .select("lapso_id, status")
     .eq("route_id", routeId)
     .eq("user_id", routeRow.assigned_user)
-    .eq("status", "en_curso")
+    .in("status", CURRENT_WEEK_ROUTE_LAPSO_STATUSES)
     .gte("start_at", currentWeekStartIso)
-    .gt("end_at", nowIso)
     .limit(1)
     .maybeSingle();
 
-  if (!activeLapso) {
+  const existingLapsoResult = getStartRouteResultForExistingLapso(currentWeekLapso);
+  if (existingLapsoResult) {
+    return existingLapsoResult;
+  }
+
+  if (!currentWeekLapso) {
     const durationDays = getDurationDaysFromVisitPeriod(routeRow.visit_period);
     const startAt = new Date();
     const endAt = getRouteLapsoEndAt(startAt);

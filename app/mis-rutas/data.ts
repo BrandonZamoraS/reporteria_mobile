@@ -5,6 +5,7 @@ import {
   getLapsoProgress,
   getRouteLapsoWeekStartAt,
 } from "@/lib/route-lapsos";
+import { CURRENT_WEEK_ROUTE_LAPSO_STATUSES } from "./route-lapso-week-state.mjs";
 import type { RouteListItem } from "./types";
 
 type Params = {
@@ -23,7 +24,6 @@ export async function getMisRutasPage({
   offset,
   limit,
 }: Params): Promise<{ items: RouteListItem[]; hasMore: boolean }> {
-  const nowIso = new Date().toISOString();
   const currentWeekStartIso = getRouteLapsoWeekStartAt();
   await closeExpiredRouteLapsos(supabase);
 
@@ -74,9 +74,8 @@ export async function getMisRutasPage({
       .from("route_lapso")
       .select("lapso_id, route_id, user_id, start_at, end_at, status")
       .in("route_id", routeIds)
-      .eq("status", "en_curso")
+      .in("status", CURRENT_WEEK_ROUTE_LAPSO_STATUSES)
       .gte("start_at", currentWeekStartIso)
-      .gt("end_at", nowIso)
       .order("start_at", { ascending: false });
 
     if (profile.role === "rutero") {
@@ -90,7 +89,10 @@ export async function getMisRutasPage({
       const progress = getLapsoProgress(lapso.start_at, lapso.end_at);
       activeLapsoByRoute.set(lapso.route_id, {
         lapsoId: lapso.lapso_id,
-        dayLabel: `Lapso activo | Dia ${progress.elapsedDay}/${progress.totalDays}`,
+        dayLabel:
+          lapso.status === "completado"
+            ? "Ruta completada esta semana"
+            : `Lapso activo | Dia ${progress.elapsedDay}/${progress.totalDays}`,
         percent: progress.percent,
       });
     }
@@ -106,7 +108,9 @@ export async function getMisRutasPage({
         typeof total === "number" ? `${total} establecimientos` : "Ruta asignada",
       activeLapsoId: activeLapso?.lapsoId ?? null,
       lapsoLabel: activeLapso
-        ? `${activeLapso.dayLabel} (${activeLapso.percent}%)`
+        ? activeLapso.dayLabel === "Ruta completada esta semana"
+          ? activeLapso.dayLabel
+          : `${activeLapso.dayLabel} (${activeLapso.percent}%)`
         : null,
     };
   });

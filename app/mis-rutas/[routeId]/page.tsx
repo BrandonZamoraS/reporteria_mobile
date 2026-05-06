@@ -7,6 +7,7 @@ import { isAllowedAppRole } from "@/lib/auth/roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { MapMarker, RouteLapsoSummary } from "../types";
 import { buildWazeUrl } from "../map-runtime.mjs";
+import { CURRENT_WEEK_ROUTE_LAPSO_STATUSES } from "../route-lapso-week-state.mjs";
 import ZonaMapaView from "./zona-mapa-view";
 
 const PROFILE_PHOTO_BUCKET = "profile-photos";
@@ -118,7 +119,6 @@ export default async function ZonaMapaPage({
 
   const profileUserId = profile.user_id;
   const lapsoUserIdForRoute = routeRow.assigned_user ?? profile.user_id;
-  const nowIso = new Date().toISOString();
   const currentWeekStartIso = getRouteLapsoWeekStartAt();
 
   if (
@@ -138,9 +138,8 @@ export default async function ZonaMapaPage({
     .select("lapso_id, route_id, user_id, status, start_at, end_at, duration_days")
     .eq("route_id", routeIdNumber)
     .eq("user_id", lapsoUserIdForRoute)
-    .eq("status", "en_curso")
+    .in("status", CURRENT_WEEK_ROUTE_LAPSO_STATUSES)
     .gte("start_at", currentWeekStartIso)
-    .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1)
     .maybeSingle();
