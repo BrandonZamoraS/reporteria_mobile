@@ -131,11 +131,28 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   recordId: number,
 ): Promise<CloseRouteLapsoResult> {
-  const { data: record } = await supabase
+  const failClosed = (
+    message: string,
+    error: unknown,
+    result: CloseRouteLapsoResult,
+  ): CloseRouteLapsoResult => {
+    console.error(message, error);
+    return result;
+  };
+
+  const { data: record, error: recordError } = await supabase
     .from("check_record")
     .select("record_id, lapso_id, user_id, establishment_id, evidence_num")
     .eq("record_id", recordId)
     .maybeSingle();
+
+  if (recordError) {
+    return failClosed("Error consultando check_record para cierre de route_lapso:", recordError, {
+      closed: false,
+      routeId: null,
+      establishmentId: null,
+    });
+  }
 
   if (
     !record ||
@@ -146,7 +163,7 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     return { closed: false, routeId: null, establishmentId: null };
   }
 
-  const { data: lapso } = await supabase
+  const { data: lapso, error: lapsoError } = await supabase
     .from("route_lapso")
     .select("lapso_id, route_id, user_id, status")
     .eq("lapso_id", record.lapso_id)
@@ -154,15 +171,31 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     .eq("status", "en_curso")
     .maybeSingle();
 
+  if (lapsoError) {
+    return failClosed("Error consultando route_lapso para cierre automatico:", lapsoError, {
+      closed: false,
+      routeId: null,
+      establishmentId: record.establishment_id,
+    });
+  }
+
   if (!lapso || !Number.isFinite(lapso.route_id)) {
     return { closed: false, routeId: null, establishmentId: record.establishment_id };
   }
 
-  const { data: establishments } = await supabase
+  const { data: establishments, error: establishmentsError } = await supabase
     .from("establishment")
     .select("establishment_id")
     .eq("route_id", lapso.route_id)
     .eq("is_active", true);
+
+  if (establishmentsError) {
+    return failClosed(
+      "Error consultando establecimientos para cierre automatico:",
+      establishmentsError,
+      { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id },
+    );
+  }
 
   const establishmentIds = (establishments ?? [])
     .map((row) => row.establishment_id)
@@ -172,11 +205,18 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
   }
 
-  const { data: relations } = await supabase
+  const { data: relations, error: relationsError } = await supabase
     .from("products_establishment")
     .select("establishment_id, product_id")
-    .in("establishment_id", establishmentIds)
-    .eq("is_active", true);
+    .in("establishment_id", establishmentIds);
+
+  if (relationsError) {
+    return failClosed(
+      "Error consultando products_establishment para cierre automatico:",
+      relationsError,
+      { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id },
+    );
+  }
 
   const productIds = [
     ...new Set(
@@ -186,29 +226,55 @@ export async function closeRouteLapsoIfFullyRegisteredAfterRecord(
     ),
   ];
 
-  const { data: products } = productIds.length === 0
-    ? { data: [] as { product_id: number }[] }
+  const { data: products, error: productsError } = productIds.length === 0
+    ? { data: [] as { product_id: number }[], error: null }
     : await supabase
         .from("product")
         .select("product_id")
         .in("product_id", productIds)
         .eq("is_active", true);
 
+  if (productsError) {
+    return failClosed("Error consultando productos para cierre automatico:", productsError, {
+      closed: false,
+      routeId: lapso.route_id,
+      establishmentId: record.establishment_id,
+    });
+  }
+
   const activeProductIds =
     (products ?? [])
       .map((row) => row.product_id)
       .filter((value): value is number => Number.isFinite(value));
 
-  const { data: records } = await supabase
+  const requiredActiveRelations = (relations ?? []).filter(
+    (relation) =>
+      Number.isFinite(relation.establishment_id) &&
+      activeProductIds.includes(relation.product_id),
+  );
+
+  if (requiredActiveRelations.length === 0) {
+    return { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id };
+  }
+
+  const { data: records, error: recordsError } = await supabase
     .from("check_record")
     .select("establishment_id, product_id")
     .eq("lapso_id", record.lapso_id)
     .eq("user_id", record.user_id);
 
+  if (recordsError) {
+    return failClosed(
+      "Error consultando registros del lapso para cierre automatico:",
+      recordsError,
+      { closed: false, routeId: lapso.route_id, establishmentId: record.establishment_id },
+    );
+  }
+
   if (
     hasRouteLapsoPendingItems({
       establishmentIds,
-      productRelations: relations ?? [],
+      productRelations: requiredActiveRelations,
       activeProductIds,
       records: records ?? [],
     })
