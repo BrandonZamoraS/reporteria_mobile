@@ -510,10 +510,10 @@ export async function createRegistroAction(
 
   const finalEvidenceCount = manualEvidenceCount ?? evidencePayload.files.length;
 
-  if (finalEvidenceCount < 1 || finalEvidenceCount > MAX_EVIDENCE_PER_RECORD) {
+  if (finalEvidenceCount < 0 || finalEvidenceCount > MAX_EVIDENCE_PER_RECORD) {
     return {
       ...INITIAL_REGISTRO_STATE,
-      error: `Debes adjuntar entre 1 y ${MAX_EVIDENCE_PER_RECORD} evidencias.`,
+      error: `Debes adjuntar entre 0 y ${MAX_EVIDENCE_PER_RECORD} evidencias.`,
     };
   }
 
@@ -594,6 +594,10 @@ export async function createRegistroAction(
   revalidatePath(`/registros/${insertedRecord.record_id}/editar`);
 
   if (manualEvidenceCount !== null) {
+    if (finalEvidenceCount === 0) {
+      await closeRouteLapsoIfFullyRegisteredAfterRecord(auth.supabase, insertedRecord.record_id);
+    }
+
     return {
       error: null,
       success: true,
@@ -728,12 +732,12 @@ export async function updateRegistroAction(
     evidenceRows.length - removableIds.length + newFilesCount;
 
   if (
-    resultingEvidenceCount < 1 ||
+    resultingEvidenceCount < 0 ||
     resultingEvidenceCount > MAX_EVIDENCE_PER_RECORD
   ) {
     return {
       ...INITIAL_REGISTRO_STATE,
-      error: `El registro debe conservar entre 1 y ${MAX_EVIDENCE_PER_RECORD} evidencias.`,
+      error: `El registro debe conservar entre 0 y ${MAX_EVIDENCE_PER_RECORD} evidencias.`,
     };
   }
 
@@ -767,6 +771,10 @@ export async function updateRegistroAction(
     if (uploadResult.error) {
         return { ...INITIAL_REGISTRO_STATE, error: uploadResult.error };
     }
+  }
+
+  if (manualEvidenceCount !== null && newFilesCount === 0) {
+    await closeRouteLapsoIfFullyRegisteredAfterRecord(auth.supabase, recordId);
   }
 
   revalidateRegistroRelatedPaths(establishment.route_id, recordRow.establishment_id);

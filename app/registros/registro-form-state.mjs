@@ -14,7 +14,7 @@ export function isRegistroSubmitDisabled({
   if (!Number.isFinite(establishmentId)) return true;
   if (!Number.isFinite(productId)) return true;
   if (!Number.isFinite(totalEvidenceCount)) return true;
-  if (totalEvidenceCount < 1) return true;
+  if (totalEvidenceCount < 0) return true;
   if (totalEvidenceCount > 6) return true;
 
   return false;

@@ -518,8 +518,8 @@ export default function RegistroForm({
         const newCount = newEvidenceFiles.length;
         const totalCount = existingCount + newCount;
 
-        if (totalCount < 1 || totalCount > 6) {
-            setClientError("Debes tener entre 1 y 6 evidencias en total.");
+        if (totalCount < 0 || totalCount > 6) {
+            setClientError("Debes tener entre 0 y 6 evidencias en total.");
             setUploadStatus(null);
             submitLockRef.current = false;
             setIsSubmitting(false);
@@ -773,7 +773,6 @@ export default function RegistroForm({
             name="evidenceFiles"
             accept="image/jpeg,image/png,image/webp"
             multiple
-            required={mode === "create" && totalEvidenceCount === 0}
             onChange={handleEvidenceFilesChange}
             className="hidden"
           />

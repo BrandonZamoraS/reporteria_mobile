@@ -19,3 +19,21 @@ test("createRegistroAction attempts route lapso close after uploading evidence r
   assert.notEqual(uploadIndex, -1);
   assert.ok(closeIndex > uploadIndex);
 });
+
+test("createRegistroAction attempts route lapso close when manual evidence count is zero", () => {
+  const source = readFileSync("app/registros/actions.ts", "utf8");
+  const zeroManualIndex = source.indexOf("finalEvidenceCount === 0", source.indexOf("createRegistroAction"));
+  const closeIndex = source.indexOf("closeRouteLapsoIfFullyRegisteredAfterRecord", zeroManualIndex);
+
+  assert.notEqual(zeroManualIndex, -1);
+  assert.ok(closeIndex > zeroManualIndex);
+});
+
+test("updateRegistroAction attempts route lapso close when no delayed evidence upload will run", () => {
+  const source = readFileSync("app/registros/actions.ts", "utf8");
+  const noNewFilesIndex = source.indexOf("newFilesCount === 0", source.indexOf("updateRegistroAction"));
+  const closeIndex = source.indexOf("closeRouteLapsoIfFullyRegisteredAfterRecord", noNewFilesIndex);
+
+  assert.notEqual(noNewFilesIndex, -1);
+  assert.ok(closeIndex > noNewFilesIndex);
+});

@@ -14,3 +14,12 @@ test("manual create checks any existing lapso record before inserting", () => {
   assert.match(source, /findExistingLapsoRecordId/);
   assert.match(source, /DUPLICATE_REGISTRO_ERROR/);
 });
+
+test("server-side evidence validation allows zero photos while keeping max limit", () => {
+  assert.doesNotMatch(source, /finalEvidenceCount\s*<\s*1/);
+  assert.doesNotMatch(source, /resultingEvidenceCount\s*<\s*1/);
+  assert.doesNotMatch(source, /entre 1 y \$\{MAX_EVIDENCE_PER_RECORD\}/);
+  assert.match(source, /finalEvidenceCount\s*<\s*0/);
+  assert.match(source, /resultingEvidenceCount\s*<\s*0/);
+  assert.match(source, /entre 0 y \$\{MAX_EVIDENCE_PER_RECORD\}/);
+});
