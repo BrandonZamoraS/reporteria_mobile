@@ -30,9 +30,24 @@ test("manual create resolves lapso from the actual record timestamp", () => {
   const createBody = source.slice(createStart, insertStart);
 
   assert.match(createBody, /const\s+recordTimeDateIso\s*=/);
-  assert.match(createBody, /resolveWritableRouteContext\(auth, routeId, recordTimeDateIso\)/);
-  assert.match(source, /\.lte\("start_at",\s*recordTimeDateIso\)/);
-  assert.match(source, /\.gt\("end_at",\s*recordTimeDateIso\)/);
+  assert.match(createBody, /const\s+lapsoLookupInstantIso\s*=\s*new Date\(\)\.toISOString\(\)/);
+  assert.match(createBody, /resolveWritableRouteContext\(auth, routeId, lapsoLookupInstantIso\)/);
+  assert.match(source, /\.lte\("start_at",\s*lapsoLookupInstantIso\)/);
+  assert.match(source, /\.gt\("end_at",\s*lapsoLookupInstantIso\)/);
+});
+
+test("database trigger enforces check_record lapso consistency", () => {
+  const migration = readFileSync(
+    new URL("../../supabase/migrations/20260622000000_enforce_check_record_lapso_consistency.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(migration, /create or replace function public\.enforce_check_record_lapso_consistency\(\)/);
+  assert.match(migration, /new\.time_date at time zone 'America\/Costa_Rica'/);
+  assert.match(migration, /start_at <= v_record_instant/);
+  assert.match(migration, /end_at > v_record_instant/);
+  assert.match(migration, /before insert or update of time_date, lapso_id, user_id, establishment_id/);
+  assert.match(migration, /create trigger trg_enforce_check_record_lapso_consistency/);
 });
 
 test("normal edit preserves the existing lapso and timestamp", () => {

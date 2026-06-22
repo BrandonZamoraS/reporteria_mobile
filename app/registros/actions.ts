@@ -183,7 +183,7 @@ async function getAuthContext(): Promise<AuthContext | null> {
 async function resolveWritableRouteContext(
   auth: AuthContext,
   routeId: number,
-  recordTimeDateIso: string,
+  lapsoLookupInstantIso: string,
 ): Promise<{ context: WritableRouteContext | null; error: string | null }> {
   const { supabase, profileUserId, role } = auth;
 
@@ -206,8 +206,8 @@ async function resolveWritableRouteContext(
     .select("lapso_id, user_id")
     .eq("route_id", routeId)
     .eq("status", "en_curso")
-    .lte("start_at", recordTimeDateIso)
-    .gt("end_at", recordTimeDateIso)
+    .lte("start_at", lapsoLookupInstantIso)
+    .gt("end_at", lapsoLookupInstantIso)
     .order("start_at", { ascending: false })
     .limit(1);
 
@@ -225,8 +225,8 @@ async function resolveWritableRouteContext(
       .select("lapso_id, user_id")
       .eq("route_id", routeId)
       .eq("status", "en_curso")
-      .lte("start_at", recordTimeDateIso)
-      .gt("end_at", recordTimeDateIso)
+      .lte("start_at", lapsoLookupInstantIso)
+      .gt("end_at", lapsoLookupInstantIso)
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -519,7 +519,8 @@ export async function createRegistroAction(
   }
 
   const recordTimeDateIso = new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString();
-  const routeContextResult = await resolveWritableRouteContext(auth, routeId, recordTimeDateIso);
+  const lapsoLookupInstantIso = new Date().toISOString();
+  const routeContextResult = await resolveWritableRouteContext(auth, routeId, lapsoLookupInstantIso);
   if (!routeContextResult.context) {
     return { ...INITIAL_REGISTRO_STATE, error: routeContextResult.error };
   }
