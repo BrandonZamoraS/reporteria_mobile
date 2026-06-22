@@ -23,3 +23,31 @@ test("server-side evidence validation allows zero photos while keeping max limit
   assert.match(source, /resultingEvidenceCount\s*<\s*0/);
   assert.match(source, /entre 0 y \$\{MAX_EVIDENCE_PER_RECORD\}/);
 });
+
+test("manual create resolves lapso from the actual record timestamp", () => {
+  const createStart = source.indexOf("export async function createRegistroAction");
+  const insertStart = source.indexOf('.from("check_record")', createStart);
+  const createBody = source.slice(createStart, insertStart);
+
+  assert.match(createBody, /const\s+recordTimeDateIso\s*=/);
+  assert.match(createBody, /resolveWritableRouteContext\(auth, routeId, recordTimeDateIso\)/);
+  assert.match(source, /\.lte\("start_at",\s*recordTimeDateIso\)/);
+  assert.match(source, /\.gt\("end_at",\s*recordTimeDateIso\)/);
+});
+
+test("normal edit preserves the existing lapso and timestamp", () => {
+  const updateStart = source.indexOf("export async function updateRegistroAction");
+  const updateBody = source.slice(updateStart);
+  const updatePayloadStart = updateBody.indexOf(".update({");
+  const updatePayloadEnd = updateBody.indexOf("})", updatePayloadStart);
+  const updatePayload = updateBody.slice(updatePayloadStart, updatePayloadEnd);
+
+  assert.match(updateBody, /\.select\("record_id, user_id, product_id, establishment_id, lapso_id, time_date"\)/);
+  assert.doesNotMatch(updatePayload, /lapso_id\s*:/);
+  assert.doesNotMatch(updatePayload, /time_date\s*:/);
+});
+
+test("registro writes no longer use current-week lapso selection", () => {
+  assert.doesNotMatch(source, /getRouteLapsoWeekStartAt/);
+  assert.doesNotMatch(source, /\.gte\("start_at", currentWeekStartIso\)/);
+});

@@ -3,10 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAllowedAppRole, type AllowedAppRole } from "@/lib/auth/roles";
-import {
-  closeRouteLapsoIfFullyRegisteredAfterRecord,
-  getRouteLapsoWeekStartAt,
-} from "@/lib/route-lapsos";
+import { closeRouteLapsoIfFullyRegisteredAfterRecord } from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   DUPLICATE_REGISTRO_ERROR,
@@ -186,10 +183,9 @@ async function getAuthContext(): Promise<AuthContext | null> {
 async function resolveWritableRouteContext(
   auth: AuthContext,
   routeId: number,
+  recordTimeDateIso: string,
 ): Promise<{ context: WritableRouteContext | null; error: string | null }> {
   const { supabase, profileUserId, role } = auth;
-  const nowIso = new Date().toISOString();
-  const currentWeekStartIso = getRouteLapsoWeekStartAt();
 
   const { data: routeRow } = await supabase
     .from("route")
@@ -210,8 +206,8 @@ async function resolveWritableRouteContext(
     .select("lapso_id, user_id")
     .eq("route_id", routeId)
     .eq("status", "en_curso")
-    .gte("start_at", currentWeekStartIso)
-    .gt("end_at", nowIso)
+    .lte("start_at", recordTimeDateIso)
+    .gt("end_at", recordTimeDateIso)
     .order("start_at", { ascending: false })
     .limit(1);
 
@@ -229,8 +225,8 @@ async function resolveWritableRouteContext(
       .select("lapso_id, user_id")
       .eq("route_id", routeId)
       .eq("status", "en_curso")
-      .gte("start_at", currentWeekStartIso)
-      .gt("end_at", nowIso)
+      .lte("start_at", recordTimeDateIso)
+      .gt("end_at", recordTimeDateIso)
       .order("start_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -522,7 +518,8 @@ export async function createRegistroAction(
     return { ...INITIAL_REGISTRO_STATE, error: "Sesion no valida." };
   }
 
-  const routeContextResult = await resolveWritableRouteContext(auth, routeId);
+  const recordTimeDateIso = new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString();
+  const routeContextResult = await resolveWritableRouteContext(auth, routeId, recordTimeDateIso);
   if (!routeContextResult.context) {
     return { ...INITIAL_REGISTRO_STATE, error: routeContextResult.error };
   }
@@ -558,7 +555,7 @@ export async function createRegistroAction(
       real_inventory: realInventory,
       evidence_num: finalEvidenceCount,
       comments: comments || null,
-      time_date: new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString(),
+      time_date: recordTimeDateIso,
     })
     .select("record_id")
     .single();
@@ -659,7 +656,7 @@ export async function updateRegistroAction(
 
   const { data: recordRow } = await auth.supabase
     .from("check_record")
-    .select("record_id, user_id, product_id, establishment_id")
+    .select("record_id, user_id, product_id, establishment_id, lapso_id, time_date")
     .eq("record_id", recordId)
     .maybeSingle();
 
@@ -691,22 +688,6 @@ export async function updateRegistroAction(
     if (!routeRow || routeRow.assigned_user !== auth.profileUserId) {
       return { ...INITIAL_REGISTRO_STATE, error: "No tienes acceso a la ruta de este registro." };
     }
-  }
-
-  const { data: lapso } = await auth.supabase
-    .from("route_lapso")
-    .select("lapso_id")
-    .eq("route_id", establishment.route_id)
-    .eq("user_id", recordRow.user_id)
-    .eq("status", "en_curso")
-    .gte("start_at", getRouteLapsoWeekStartAt())
-    .gt("end_at", new Date().toISOString())
-    .order("start_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!lapso?.lapso_id) {
-    return { ...INITIAL_REGISTRO_STATE, error: "No hay lapso activo para editar este registro." };
   }
 
   const { data: existingEvidenceRows } = await auth.supabase
@@ -744,12 +725,10 @@ export async function updateRegistroAction(
   const { error: updateError } = await auth.supabase
     .from("check_record")
     .update({
-      lapso_id: lapso.lapso_id,
       system_inventory: systemInventory,
       real_inventory: realInventory,
       evidence_num: resultingEvidenceCount,
       comments: comments || null,
-      time_date: new Date(new Date().getTime() - 6 * 3600 * 1000).toISOString(),
     })
     .eq("record_id", recordId);
 

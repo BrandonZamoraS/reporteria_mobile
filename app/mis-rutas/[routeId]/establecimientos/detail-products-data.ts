@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSqlContainsPattern, sanitizeListSearchQuery } from "@/lib/list-search.mjs";
-import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import type { DetailSource, ProductRecordItem } from "./detail-types";
 
 const PRODUCT_SCAN_BATCH = 60;
@@ -72,14 +71,15 @@ export async function getEstablishmentProductsPage({
     return null;
   }
 
+  const nowIso = new Date().toISOString();
   const { data: lapso } = await supabase
     .from("route_lapso")
     .select("lapso_id")
     .eq("route_id", routeId)
     .eq("user_id", lapsoUserId)
     .eq("status", "en_curso")
-    .gte("start_at", getRouteLapsoWeekStartAt())
-    .gt("end_at", new Date().toISOString())
+    .lte("start_at", nowIso)
+    .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1)
     .maybeSingle();

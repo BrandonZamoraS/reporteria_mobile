@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import AppShell from "@/app/_components/app-shell";
 import { logoutAction } from "@/app/home/actions";
 import { isAllowedAppRole } from "@/lib/auth/roles";
-import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const PROFILE_PHOTO_BUCKET = "profile-photos";
@@ -77,7 +76,7 @@ export default async function RegistroSuccessPage({
       .select("lapso_id")
       .eq("route_id", parsedRouteId)
       .eq("status", "en_curso")
-      .gte("start_at", getRouteLapsoWeekStartAt())
+      .lte("start_at", nowIso)
       .gt("end_at", nowIso)
       .limit(1);
 

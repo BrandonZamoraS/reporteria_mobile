@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import AppShell from "@/app/_components/app-shell";
 import { logoutAction } from "@/app/home/actions";
 import { isAllowedAppRole } from "@/lib/auth/roles";
-import { getRouteLapsoWeekStartAt } from "@/lib/route-lapsos";
 import { getCompleteRegisteredPairs } from "@/lib/route-lapsos.mjs";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import RegistroForm from "../registro-form";
@@ -119,12 +118,13 @@ export default async function RegistroNuevoPage({
   let productOptions: ProductOption[] = [];
   let activeRegistroRelations: ActiveRegistroRelation[] = [];
 
+  const nowIso = new Date().toISOString();
   let activeLapsosQuery = supabase
     .from("route_lapso")
     .select("lapso_id, route_id, user_id, start_at")
     .eq("status", "en_curso")
-    .gte("start_at", getRouteLapsoWeekStartAt())
-    .gt("end_at", new Date().toISOString())
+    .lte("start_at", nowIso)
+    .gt("end_at", nowIso)
     .order("start_at", { ascending: false });
 
   if (routeIds.length > 0) {

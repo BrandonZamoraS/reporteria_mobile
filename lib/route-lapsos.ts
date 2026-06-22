@@ -34,7 +34,6 @@ export async function resolveActiveLapso(
 ): Promise<ResolvedLapso | null> {
   const { routeId, assignedUser, profileUserId, role } = params;
   const nowIso = new Date().toISOString();
-  const currentWeekStartIso = getCurrentCostaRicaMondayStartIso();
 
   if (role === "rutero") {
     const { data } = await supabase
@@ -43,7 +42,7 @@ export async function resolveActiveLapso(
       .eq("route_id", routeId)
       .eq("user_id", profileUserId)
       .eq("status", "en_curso")
-      .gte("start_at", currentWeekStartIso)
+      .lte("start_at", nowIso)
       .gt("end_at", nowIso)
       .order("start_at", { ascending: false })
       .limit(1)
@@ -60,7 +59,7 @@ export async function resolveActiveLapso(
     .select("lapso_id, user_id")
     .eq("route_id", routeId)
     .eq("status", "en_curso")
-    .gte("start_at", currentWeekStartIso)
+    .lte("start_at", nowIso)
     .gt("end_at", nowIso)
     .order("start_at", { ascending: false })
     .limit(1);
@@ -78,7 +77,7 @@ export async function resolveActiveLapso(
       .select("lapso_id, user_id")
       .eq("route_id", routeId)
       .eq("status", "en_curso")
-      .gte("start_at", currentWeekStartIso)
+      .lte("start_at", nowIso)
       .gt("end_at", nowIso)
       .order("start_at", { ascending: false })
       .limit(1)
